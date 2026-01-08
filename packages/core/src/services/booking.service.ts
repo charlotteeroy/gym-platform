@@ -1,5 +1,13 @@
-import { prisma, type Booking, type WaitlistEntry, BookingStatus } from '@gym/database';
-import { ERROR_CODES, type ApiError, diffInMinutes } from '@gym/shared';
+import {
+  prisma,
+  type Booking,
+  type WaitlistEntry,
+  BookingStatus,
+  SessionStatus,
+} from '@gym/database';
+import { ERROR_CODES, type ApiError } from '@gym/shared';
+import { addMinutes, diffInMinutes } from '@gym/shared';
+import { getSessionAvailability } from './class.service';
 
 export type BookingResult =
   | { success: true; booking: Booking }
@@ -12,71 +20,127 @@ export type WaitlistResult =
 /**
  * Book a class session for a member
  */
-export async function bookClass(memberId: string, sessionId: string): Promise<BookingResult> {
-  // Get session with class details and current bookings
+export async function bookSession(memberId: string, sessionId: string): Promise<BookingResult> {
+  // Get session with class details
   const session = await prisma.classSession.findUnique({
     where: { id: sessionId },
-    include: {
-      class: true,
-      _count: { select: { bookings: { where: { status: 'CONFIRMED' } } } },
-    },
+    include: { class: true },
   });
 
   if (!session) {
     return {
       success: false,
-      error: { code: ERROR_CODES.NOT_FOUND, message: 'Class session not found' },
+      error: {
+        code: ERROR_CODES.NOT_FOUND,
+        message: 'Session not found',
+      },
     };
   }
 
-  // Check if session is cancelled
-  if (session.status === 'CANCELLED') {
+  // Check session status
+  if (session.status !== SessionStatus.SCHEDULED) {
     return {
       success: false,
-      error: { code: ERROR_CODES.INVALID_INPUT, message: 'This class has been cancelled' },
+      error: {
+        code: ERROR_CODES.INVALID_INPUT,
+        message: 'Session is not available for booking',
+      },
     };
   }
 
-  // Check if booking is still open
+  // Check booking window
   const now = new Date();
-  const minutesUntilClass = diffInMinutes(now, session.startTime);
+  const bookingOpens = addMinutes(session.startTime, -session.class.bookingOpensHours * 60);
+  const bookingCloses = addMinutes(session.startTime, -session.class.bookingClosesMinutes);
 
-  if (minutesUntilClass < session.class.bookingClosesMinutes) {
+  if (now < bookingOpens) {
     return {
       success: false,
-      error: { code: ERROR_CODES.BOOKING_CLOSED, message: 'Booking for this class has closed' },
+      error: {
+        code: ERROR_CODES.BOOKING_CLOSED,
+        message: `Booking opens ${session.class.bookingOpensHours} hours before class`,
+      },
     };
   }
 
-  // Check if class is full
-  const capacity = session.capacityOverride ?? session.class.capacity;
-  if (session._count.bookings >= capacity) {
+  if (now > bookingCloses) {
     return {
       success: false,
-      error: { code: ERROR_CODES.CLASS_FULL, message: 'This class is full' },
+      error: {
+        code: ERROR_CODES.BOOKING_CLOSED,
+        message: 'Booking is closed for this session',
+      },
     };
   }
 
-  // Check if member already has a booking
+  // Check for existing booking
   const existingBooking = await prisma.booking.findUnique({
     where: {
       memberId_sessionId: { memberId, sessionId },
     },
   });
 
-  if (existingBooking) {
-    if (existingBooking.status === 'CONFIRMED') {
-      return {
-        success: false,
-        error: { code: ERROR_CODES.ALREADY_EXISTS, message: 'You already have a booking for this class' },
-      };
-    }
-    // Reactivate cancelled booking
-    const booking = await prisma.booking.update({
-      where: { id: existingBooking.id },
-      data: { status: BookingStatus.CONFIRMED, cancelledAt: null },
-    });
-    return { success: true, booking };
+  if (existingBooking && existingBooking.status === BookingStatus.CONFIRMED) {
+    return {
+      success: false,
+      error: {
+        code: ERROR_CODES.ALREADY_EXISTS,
+        message: 'You already have a booking for this session',
+      },
+    };
+  }
+
+  // Check member subscription and credits
+  const member = await prisma.member.findUnique({
+    where: { id: memberId },
+    include: {
+      subscription: {
+        include: { plan: true },
+      },
+    },
+  });
+
+  if (!member) {
+    return {
+      success: false,
+      error: {
+        code: ERROR_CODES.NOT_FOUND,
+        message: 'Member not found',
+      },
+    };
+  }
+
+  if (member.status !== 'ACTIVE') {
+    return {
+      success: false,
+      error: {
+        code: ERROR_CODES.FORBIDDEN,
+        message: 'Member is not active',
+      },
+    };
+  }
+
+  if (!member.subscription || member.subscription.status !== 'ACTIVE') {
+    return {
+      success: false,
+      error: {
+        code: ERROR_CODES.SUBSCRIPTION_REQUIRED,
+        message: 'Active subscription required to book classes',
+      },
+    };
+  }
+
+  // Check capacity
+  const availability = await getSessionAvailability(sessionId);
+
+  if (availability.available <= 0) {
+    return {
+      success: false,
+      error: {
+        code: ERROR_CODES.CLASS_FULL,
+        message: 'This session is full. You can join the waitlist.',
+      },
+    };
   }
 
   // Create booking
@@ -96,8 +160,8 @@ export async function bookClass(memberId: string, sessionId: string): Promise<Bo
  */
 export async function cancelBooking(
   bookingId: string,
-  memberId: string
-): Promise<{ success: boolean; error?: ApiError }> {
+  memberId?: string
+): Promise<BookingResult> {
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
     include: {
@@ -110,23 +174,31 @@ export async function cancelBooking(
   if (!booking) {
     return {
       success: false,
-      error: { code: ERROR_CODES.NOT_FOUND, message: 'Booking not found' },
+      error: {
+        code: ERROR_CODES.NOT_FOUND,
+        message: 'Booking not found',
+      },
     };
   }
 
-  // Verify ownership
-  if (booking.memberId !== memberId) {
+  // Verify ownership if memberId provided
+  if (memberId && booking.memberId !== memberId) {
     return {
       success: false,
-      error: { code: ERROR_CODES.FORBIDDEN, message: 'You can only cancel your own bookings' },
+      error: {
+        code: ERROR_CODES.FORBIDDEN,
+        message: 'You can only cancel your own bookings',
+      },
     };
   }
 
-  // Check if already cancelled
-  if (booking.status === 'CANCELLED') {
+  if (booking.status !== BookingStatus.CONFIRMED) {
     return {
       success: false,
-      error: { code: ERROR_CODES.INVALID_INPUT, message: 'Booking is already cancelled' },
+      error: {
+        code: ERROR_CODES.INVALID_INPUT,
+        message: 'Booking is not active',
+      },
     };
   }
 
@@ -139,13 +211,13 @@ export async function cancelBooking(
       success: false,
       error: {
         code: ERROR_CODES.CANCELLATION_DEADLINE_PASSED,
-        message: 'The cancellation deadline has passed',
+        message: `Cancellation deadline is ${booking.session.class.cancellationMinutes} minutes before class`,
       },
     };
   }
 
   // Cancel booking
-  await prisma.booking.update({
+  const updatedBooking = await prisma.booking.update({
     where: { id: bookingId },
     data: {
       status: BookingStatus.CANCELLED,
@@ -153,43 +225,38 @@ export async function cancelBooking(
     },
   });
 
-  // Process waitlist if applicable
-  await processWaitlist(booking.sessionId);
+  // Promote from waitlist
+  await promoteFromWaitlist(booking.sessionId);
 
-  return { success: true };
+  return { success: true, booking: updatedBooking };
 }
 
 /**
- * Join waitlist for a class
+ * Join waitlist for a session
  */
 export async function joinWaitlist(memberId: string, sessionId: string): Promise<WaitlistResult> {
   const session = await prisma.classSession.findUnique({
     where: { id: sessionId },
-    include: {
-      class: true,
-      _count: { select: { waitlist: true } },
-    },
+    include: { class: true },
   });
 
   if (!session) {
     return {
       success: false,
-      error: { code: ERROR_CODES.NOT_FOUND, message: 'Class session not found' },
+      error: {
+        code: ERROR_CODES.NOT_FOUND,
+        message: 'Session not found',
+      },
     };
   }
 
-  // Check if waitlist is enabled and has space
   if (!session.class.waitlistEnabled) {
     return {
       success: false,
-      error: { code: ERROR_CODES.INVALID_INPUT, message: 'Waitlist is not enabled for this class' },
-    };
-  }
-
-  if (session._count.waitlist >= session.class.waitlistMax) {
-    return {
-      success: false,
-      error: { code: ERROR_CODES.CLASS_FULL, message: 'Waitlist is full' },
+      error: {
+        code: ERROR_CODES.INVALID_INPUT,
+        message: 'Waitlist is not enabled for this class',
+      },
     };
   }
 
@@ -203,7 +270,42 @@ export async function joinWaitlist(memberId: string, sessionId: string): Promise
   if (existingEntry) {
     return {
       success: false,
-      error: { code: ERROR_CODES.ALREADY_EXISTS, message: 'You are already on the waitlist' },
+      error: {
+        code: ERROR_CODES.ALREADY_EXISTS,
+        message: 'You are already on the waitlist',
+      },
+    };
+  }
+
+  // Check if already booked
+  const existingBooking = await prisma.booking.findUnique({
+    where: {
+      memberId_sessionId: { memberId, sessionId },
+    },
+  });
+
+  if (existingBooking && existingBooking.status === BookingStatus.CONFIRMED) {
+    return {
+      success: false,
+      error: {
+        code: ERROR_CODES.ALREADY_EXISTS,
+        message: 'You already have a booking for this session',
+      },
+    };
+  }
+
+  // Check waitlist capacity
+  const waitlistCount = await prisma.waitlistEntry.count({
+    where: { sessionId },
+  });
+
+  if (waitlistCount >= session.class.waitlistMax) {
+    return {
+      success: false,
+      error: {
+        code: ERROR_CODES.CLASS_FULL,
+        message: 'Waitlist is full',
+      },
     };
   }
 
@@ -212,7 +314,7 @@ export async function joinWaitlist(memberId: string, sessionId: string): Promise
     data: {
       memberId,
       sessionId,
-      position: session._count.waitlist + 1,
+      position: waitlistCount + 1,
     },
   });
 
@@ -235,16 +337,18 @@ export async function leaveWaitlist(
   if (!entry) {
     return {
       success: false,
-      error: { code: ERROR_CODES.NOT_FOUND, message: 'Waitlist entry not found' },
+      error: {
+        code: ERROR_CODES.NOT_FOUND,
+        message: 'Waitlist entry not found',
+      },
     };
   }
 
-  // Remove from waitlist
   await prisma.waitlistEntry.delete({
     where: { id: entry.id },
   });
 
-  // Reorder remaining entries
+  // Reorder positions
   await prisma.waitlistEntry.updateMany({
     where: {
       sessionId,
@@ -259,76 +363,87 @@ export async function leaveWaitlist(
 }
 
 /**
- * Process waitlist when a spot opens up
+ * Promote first person from waitlist to booking
  */
-export async function processWaitlist(sessionId: string): Promise<void> {
-  const session = await prisma.classSession.findUnique({
-    where: { id: sessionId },
-    include: {
-      class: true,
-      _count: { select: { bookings: { where: { status: 'CONFIRMED' } } } },
-    },
-  });
-
-  if (!session) return;
-
-  const capacity = session.capacityOverride ?? session.class.capacity;
-  const spotsAvailable = capacity - session._count.bookings;
-
-  if (spotsAvailable <= 0) return;
-
-  // Get first person on waitlist
-  const nextInLine = await prisma.waitlistEntry.findFirst({
+async function promoteFromWaitlist(sessionId: string): Promise<void> {
+  const firstInLine = await prisma.waitlistEntry.findFirst({
     where: { sessionId },
     orderBy: { position: 'asc' },
   });
 
-  if (!nextInLine) return;
-
-  // Notify and set deadline (in production, send email here)
-  const expiresAt = new Date();
-  expiresAt.setHours(expiresAt.getHours() + 2); // 2 hour deadline
-
-  await prisma.waitlistEntry.update({
-    where: { id: nextInLine.id },
-    data: {
-      notifiedAt: new Date(),
-      expiresAt,
-    },
-  });
-}
-
-/**
- * Mark attendance for a booking
- */
-export async function markAttendance(
-  bookingId: string,
-  attended: boolean
-): Promise<BookingResult> {
-  const booking = await prisma.booking.findUnique({
-    where: { id: bookingId },
-  });
-
-  if (!booking) {
-    return {
-      success: false,
-      error: { code: ERROR_CODES.NOT_FOUND, message: 'Booking not found' },
-    };
+  if (!firstInLine) {
+    return;
   }
 
-  const updatedBooking = await prisma.booking.update({
-    where: { id: bookingId },
-    data: {
-      status: attended ? BookingStatus.ATTENDED : BookingStatus.NO_SHOW,
-      attendedAt: attended ? new Date() : null,
-    },
+  // Check if spot is available
+  const availability = await getSessionAvailability(sessionId);
+
+  if (availability.available <= 0) {
+    return;
+  }
+
+  // Create booking for waitlisted member
+  await prisma.$transaction(async (tx) => {
+    // Create booking
+    await tx.booking.create({
+      data: {
+        memberId: firstInLine.memberId,
+        sessionId,
+        status: BookingStatus.CONFIRMED,
+      },
+    });
+
+    // Remove from waitlist
+    await tx.waitlistEntry.delete({
+      where: { id: firstInLine.id },
+    });
+
+    // Reorder waitlist
+    await tx.waitlistEntry.updateMany({
+      where: {
+        sessionId,
+        position: { gt: firstInLine.position },
+      },
+      data: {
+        position: { decrement: 1 },
+      },
+    });
   });
 
-  return { success: true, booking: updatedBooking };
+  // TODO: Send notification to promoted member
 }
 
 /**
- * Get member's bookings
+ * Mark booking as attended
+ */
+export async function markAttended(bookingId: string): Promise<BookingResult> {
+  const booking = await prisma.booking.update({
+    where: { id: bookingId },
+    data: {
+      status: BookingStatus.ATTENDED,
+      attendedAt: new Date(),
+    },
+  });
+
+  return { success: true, booking };
+}
+
+/**
+ * Mark booking as no-show
+ */
+export async function markNoShow(bookingId: string): Promise<BookingResult> {
+  const booking = await prisma.booking.update({
+    where: { id: bookingId },
+    data: {
+      status: BookingStatus.NO_SHOW,
+    },
+  });
+
+  return { success: true, booking };
+}
+
+/**
+ * Get member's upcoming bookings
  */
 export async function getMemberBookings(
   memberId: string,
@@ -340,14 +455,22 @@ export async function getMemberBookings(
   return prisma.booking.findMany({
     where: {
       memberId,
-      status: 'CONFIRMED',
+      status: { in: [BookingStatus.CONFIRMED, BookingStatus.ATTENDED] },
       ...(upcoming
-        ? { session: { startTime: { gte: now } } }
-        : { session: { startTime: { lt: now } } }),
+        ? {
+            session: {
+              startTime: { gte: now },
+            },
+          }
+        : {}),
     },
     include: {
       session: {
-        include: { class: true },
+        include: {
+          class: {
+            include: { instructor: true },
+          },
+        },
       },
     },
     orderBy: {
