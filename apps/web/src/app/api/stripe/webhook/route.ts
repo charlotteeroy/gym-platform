@@ -12,8 +12,8 @@ export async function POST(request: Request) {
 
   const result = await handleStripeWebhook(body, signature);
 
-  if (!result.success) {
-    return new Response(result.error || 'Webhook processing failed', { status: 400 });
+  if (!result || !result.success) {
+    return new Response(result?.error || 'Webhook processing failed', { status: 400 });
   }
 
   return new Response('OK', { status: 200 });

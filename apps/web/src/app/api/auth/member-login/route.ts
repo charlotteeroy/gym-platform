@@ -19,8 +19,8 @@ export async function POST(request: Request) {
     // Login the user
     const result = await loginUser({ email, password });
 
-    if (!result.success) {
-      return apiUnauthorized(result.error.message);
+    if (!result || !result.success) {
+      return apiUnauthorized(result?.error?.message || 'Login failed');
     }
 
     // Check if this user is a member

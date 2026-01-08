@@ -27,8 +27,8 @@ export async function POST(request: Request) {
 
     const result = await createBillingPortalSession(member.id, returnUrl);
 
-    if (!result.success) {
-      return apiError(result.error, 400);
+    if (!result || !result.success) {
+      return apiError(result?.error || { code: 'PORTAL_FAILED', message: 'Failed to access billing portal' }, 400);
     }
 
     return apiSuccess({ url: result.sessionUrl });

@@ -6,3 +6,4 @@ export * from './subscription.service';
 export * from './class.service';
 export * from './booking.service';
 export * from './stripe.service';
+export * from './analytics.service';

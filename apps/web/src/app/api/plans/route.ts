@@ -61,8 +61,8 @@ export async function POST(request: Request) {
     // Create plan
     const result = await createMembershipPlan(gymId, parsed.data);
 
-    if (!result.success) {
-      return apiError(result.error, 400);
+    if (!result || !result.success) {
+      return apiError(result?.error || { code: 'CREATE_FAILED', message: 'Failed to create plan' }, 400);
     }
 
     // Sync to Stripe in background (don't block response)
