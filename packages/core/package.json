@@ -2,20 +2,15 @@
   "name": "@gym/core",
   "version": "0.0.1",
   "private": true,
-  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
   "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
-    },
-    "./services/*": {
-      "types": "./dist/services/*.d.ts",
-      "default": "./dist/services/*.js"
-    }
+    ".": "./src/index.ts",
+    "./services/*": "./src/services/*.ts"
   },
   "scripts": {
-    "build": "tsup",
-    "dev": "tsup --watch",
+    "build": "echo 'skip'",
+    "dev": "echo 'skip'",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:unit": "vitest run"
