@@ -14,7 +14,7 @@ export async function getSession() {
 
   const result = await validateSession(sessionToken);
 
-  if (!result.success) {
+  if (!result || !result.success) {
     return null;
   }
 

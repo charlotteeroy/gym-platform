@@ -25,8 +25,8 @@ export async function POST(request: Request) {
     // Attempt login
     const result = await loginUser(parsed.data);
 
-    if (!result.success) {
-      return apiError(result.error, 401);
+    if (!result || !result.success) {
+      return apiError(result?.error || { code: 'LOGIN_FAILED', message: 'Login failed' }, 401);
     }
 
     // Set session cookie
