@@ -11,8 +11,8 @@ services:
     runtime: node
     plan: free
     region: oregon
-    buildCommand: npm install -g pnpm && pnpm install && pnpm db:generate && pnpm db:push && cd apps/web && pnpm build
-    startCommand: cd apps/web && pnpm start
+    buildCommand: npm install -g pnpm && pnpm install && pnpm db:generate && pnpm build
+    startCommand: pnpm --filter web start
     envVars:
       - key: NODE_VERSION
         value: 20
