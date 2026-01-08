@@ -21,7 +21,6 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     const body = await request.json();
     const { classId, startTime, endTime } = body;
 
-    // Verify the session belongs to the same gym
     const existingSession = await prisma.classSession.findFirst({
       where: { id, gymId: staff.gymId },
     });
@@ -30,7 +29,6 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: 'Session not found' }, { status: 404 });
     }
 
-    // If changing class type, verify the new class belongs to the same gym
     if (classId && classId !== existingSession.classId) {
       const classType = await prisma.class.findFirst({
         where: { id: classId, gymId: staff.gymId },
@@ -60,12 +58,14 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       },
     });
 
+    const instructor = updatedSession.class.instructor;
+
     return NextResponse.json({
       id: updatedSession.id,
       classId: updatedSession.classId,
       className: updatedSession.class.name,
       color: updatedSession.class.color,
-      instructorName: `${updatedSession.class.instructor.firstName} ${updatedSession.class.instructor.lastName}`,
+      instructorName: instructor ? `${instructor.firstName} ${instructor.lastName}` : 'Unknown',
       startTime: updatedSession.startTime.toISOString(),
       endTime: updatedSession.endTime.toISOString(),
       capacity: updatedSession.class.capacity,
@@ -95,7 +95,6 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
 
     const { id } = params;
 
-    // Verify the session belongs to the same gym
     const existingSession = await prisma.classSession.findFirst({
       where: { id, gymId: staff.gymId },
     });
@@ -104,12 +103,10 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       return NextResponse.json({ error: 'Session not found' }, { status: 404 });
     }
 
-    // Delete associated bookings first
     await prisma.booking.deleteMany({
       where: { sessionId: id },
     });
 
-    // Delete the session
     await prisma.classSession.delete({
       where: { id },
     });
