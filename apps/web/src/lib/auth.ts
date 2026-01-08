@@ -14,11 +14,12 @@ export async function getSession() {
 
   const result = await validateSession(sessionToken);
 
-  if (!result || !result.success) {
+  // Check if validation succeeded by checking for user property
+  if (!result || !('user' in result) || !result.user) {
     return null;
   }
 
-  return result;
+  return result as { success: true; user: typeof result.user; session: any };
 }
 
 export async function getCurrentUser() {
