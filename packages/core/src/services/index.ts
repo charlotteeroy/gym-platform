@@ -1,9 +1,132 @@
-export * from './auth.service';
-export * from './gym.service';
-export * from './member.service';
-export * from './staff.service';
-export * from './subscription.service';
-export * from './class.service';
-export * from './booking.service';
-export * from './stripe.service';
-export * from './analytics.service';
+// Auth service
+export {
+  type AuthResult,
+  type TokenValidationResult,
+  hashPassword,
+  verifyPassword,
+  registerUser,
+  loginUser,
+  validateSession,
+  logout,
+  logoutAllSessions,
+  createPasswordResetToken,
+  resetPassword,
+  changePassword,
+} from './auth.service';
+
+// Gym service
+export {
+  type GymResult,
+  type GymWithStaff,
+  createGym,
+  getGymById,
+  getGymBySlug,
+  getGymWithStaff,
+  updateGym,
+  isSlugAvailable,
+  generateUniqueSlug,
+  getGymStats,
+} from './gym.service';
+
+// Member service
+export {
+  type MemberResult,
+  type MemberWithSubscription,
+  createMember,
+  getMemberById,
+  getMemberWithSubscription,
+  getMemberByUserId,
+  updateMember,
+  updateMemberStatus,
+  listMembers,
+  checkInMember,
+  getMemberCheckIns,
+  getMemberStats,
+  deleteMember,
+} from './member.service';
+
+// Staff service
+export {
+  type StaffResult,
+  createStaff,
+  getStaffById,
+  getStaffByUserId,
+  updateStaff,
+  deactivateStaff,
+  reactivateStaff,
+  listStaff,
+  listInstructors,
+  hasPermission,
+  canManageStaff,
+} from './staff.service';
+
+// Subscription service
+export {
+  type PlanResult,
+  type SubscriptionResult,
+  createMembershipPlan,
+  getMembershipPlanById,
+  updateMembershipPlan,
+  listMembershipPlans,
+  assignSubscription,
+  getMemberSubscription,
+  cancelSubscription,
+  pauseSubscription,
+  resumeSubscription,
+  processExpiredSubscriptions,
+} from './subscription.service';
+
+// Class service
+export {
+  type ClassResult,
+  type SessionResult,
+  createClass,
+  getClassById,
+  getClassWithSessions,
+  updateClass,
+  deactivateClass,
+  listClasses,
+  createRecurrenceRule,
+  createClassSession,
+  getSessionById,
+  getSessionWithDetails,
+  cancelSession,
+  getUpcomingSessions,
+  getSessionAvailability,
+} from './class.service';
+
+// Booking service
+export {
+  type BookingResult,
+  type WaitlistResult,
+  bookSession,
+  cancelBooking,
+  joinWaitlist,
+  leaveWaitlist,
+  markAttended,
+  markNoShow,
+  getMemberBookings,
+} from './booking.service';
+
+// Stripe service
+export {
+  stripe,
+  createStripeCustomer,
+  syncPlanToStripe,
+  createCheckoutSession,
+  createBillingPortalSession,
+  handleStripeWebhook,
+} from './stripe.service';
+
+// Analytics service
+export {
+  type GymHealthScore,
+  type Alert,
+  type AtRiskMember,
+  type TrendData,
+  getGymHealth,
+  getAlerts,
+  getAtRiskMembers,
+  getTrends,
+  getQuickStats,
+} from './analytics.service';

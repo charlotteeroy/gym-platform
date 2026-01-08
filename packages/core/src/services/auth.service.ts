@@ -35,9 +35,9 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
 }
 
 /**
- * Create a new session for a user
+ * Create a new session for a user (internal use only)
  */
-export async function createSession(userId: string): Promise<Session> {
+async function createAuthSession(userId: string): Promise<Session> {
   const token = generateToken(64);
   const expiresAt = addDays(new Date(), SESSION_DURATION_DAYS);
 
@@ -81,7 +81,7 @@ export async function registerUser(input: RegisterInput): Promise<AuthResult> {
   });
 
   // Create session
-  const session = await createSession(user.id);
+  const session = await createAuthSession(user.id);
 
   return { success: true, user, session };
 }
@@ -119,7 +119,7 @@ export async function loginUser(input: LoginInput): Promise<AuthResult> {
   }
 
   // Create session
-  const session = await createSession(user.id);
+  const session = await createAuthSession(user.id);
 
   return { success: true, user, session };
 }
