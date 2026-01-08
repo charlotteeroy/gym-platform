@@ -46,18 +46,21 @@ export async function GET(request: NextRequest) {
       orderBy: { startTime: 'asc' },
     });
 
-    const formattedSessions = sessions.map((s) => ({
-      id: s.id,
-      classId: s.classId,
-      className: s.class.name,
-      color: s.class.color,
-      instructorName: `${s.class.instructor.firstName} ${s.class.instructor.lastName}`,
-      startTime: s.startTime.toISOString(),
-      endTime: s.endTime.toISOString(),
-      capacity: s.class.capacity,
-      bookingsCount: s._count.bookings,
-      status: s.status,
-    }));
+    const formattedSessions = sessions.map((s) => {
+      const instructor = s.class.instructor;
+      return {
+        id: s.id,
+        classId: s.classId,
+        className: s.class.name,
+        color: s.class.color,
+        instructorName: instructor ? `${instructor.firstName} ${instructor.lastName}` : 'Unknown',
+        startTime: s.startTime.toISOString(),
+        endTime: s.endTime.toISOString(),
+        capacity: s.class.capacity,
+        bookingsCount: s._count.bookings,
+        status: s.status,
+      };
+    });
 
     return NextResponse.json(formattedSessions);
   } catch (error) {
@@ -88,7 +91,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    // Verify the class belongs to the same gym
     const classType = await prisma.class.findFirst({
       where: { id: classId, gymId: staff.gymId },
     });
@@ -114,12 +116,14 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    const instructor = newSession.class.instructor;
+
     return NextResponse.json({
       id: newSession.id,
       classId: newSession.classId,
       className: newSession.class.name,
       color: newSession.class.color,
-      instructorName: `${newSession.class.instructor.firstName} ${newSession.class.instructor.lastName}`,
+      instructorName: instructor ? `${instructor.firstName} ${instructor.lastName}` : 'Unknown',
       startTime: newSession.startTime.toISOString(),
       endTime: newSession.endTime.toISOString(),
       capacity: newSession.class.capacity,
