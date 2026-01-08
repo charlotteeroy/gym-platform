@@ -91,6 +91,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
+    // Verify the class belongs to the same gym
     const classType = await prisma.class.findFirst({
       where: { id: classId, gymId: staff.gymId },
     });
@@ -117,7 +118,6 @@ export async function POST(request: NextRequest) {
     });
 
     const instructor = newSession.class.instructor;
-
     return NextResponse.json({
       id: newSession.id,
       classId: newSession.classId,

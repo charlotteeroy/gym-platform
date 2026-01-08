@@ -72,11 +72,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    const instructor = await prisma.staff.findFirst({
+    // Verify instructor belongs to the same gym
+    const instructorStaff = await prisma.staff.findFirst({
       where: { id: instructorId, gymId: staff.gymId },
     });
 
-    if (!instructor) {
+    if (!instructorStaff) {
       return NextResponse.json({ error: 'Instructor not found' }, { status: 404 });
     }
 
@@ -96,7 +97,6 @@ export async function POST(request: NextRequest) {
     });
 
     const classInstructor = newClass.instructor;
-
     return NextResponse.json({
       id: newClass.id,
       name: newClass.name,
