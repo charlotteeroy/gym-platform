@@ -11,14 +11,8 @@ services:
     runtime: node
     plan: free
     region: oregon
-    buildCommand: |
-      corepack enable &&
-      corepack prepare pnpm@8.15.0 --activate &&
-      pnpm install --frozen-lockfile &&
-      pnpm db:generate &&
-      pnpm db:push &&
-      pnpm build
-    startCommand: npm --prefix apps/web run start
+    buildCommand: npm install -g pnpm && pnpm install && pnpm db:generate && pnpm db:push && cd apps/web && pnpm build
+    startCommand: cd apps/web && pnpm start
     envVars:
       - key: NODE_VERSION
         value: 20
