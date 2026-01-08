@@ -73,11 +73,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify instructor belongs to the same gym
-    const instructor = await prisma.staff.findFirst({
+    const instructorStaff = await prisma.staff.findFirst({
       where: { id: instructorId, gymId: staff.gymId },
     });
 
-    if (!instructor) {
+    if (!instructorStaff) {
       return NextResponse.json({ error: 'Instructor not found' }, { status: 404 });
     }
 
@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    const instructor = newClass.instructor;
+    const classInstructor = newClass.instructor;
     return NextResponse.json({
       id: newClass.id,
       name: newClass.name,
@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
       capacity: newClass.capacity,
       durationMinutes: newClass.durationMinutes,
       instructorId: newClass.instructorId,
-      instructorName: instructor ? `${instructor.firstName} ${instructor.lastName}` : 'Unknown',
+      instructorName: classInstructor ? `${classInstructor.firstName} ${classInstructor.lastName}` : 'Unknown',
       sessionCount: 0,
     });
   } catch (error) {
