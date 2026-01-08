@@ -12,14 +12,13 @@ services:
     plan: free
     region: oregon
     buildCommand: |
-      npm install -g pnpm &&
-      pnpm install &&
+      corepack enable &&
+      corepack prepare pnpm@8.15.0 --activate &&
+      pnpm install --frozen-lockfile &&
       pnpm db:generate &&
       pnpm db:push &&
-      pnpm build &&
-      cp -r apps/web/public apps/web/.next/standalone/apps/web/ &&
-      cp -r apps/web/.next/static apps/web/.next/standalone/apps/web/.next/
-    startCommand: node apps/web/.next/standalone/apps/web/server.js
+      pnpm build
+    startCommand: npm --prefix apps/web run start
     envVars:
       - key: NODE_VERSION
         value: 20
@@ -33,7 +32,3 @@ services:
         sync: false
       - key: NODE_ENV
         value: production
-      - key: PORT
-        value: 10000
-      - key: HOSTNAME
-        value: 0.0.0.0
