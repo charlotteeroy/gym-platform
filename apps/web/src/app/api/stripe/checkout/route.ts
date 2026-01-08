@@ -28,8 +28,8 @@ export async function POST(request: Request) {
 
     const result = await createCheckoutSession(member.id, planId, successUrl, cancelUrl);
 
-    if (!result.success) {
-      return apiError(result.error, 400);
+    if (!result || !result.success) {
+      return apiError(result?.error || { code: 'CHECKOUT_FAILED', message: 'Failed to create checkout session' }, 400);
     }
 
     return apiSuccess({ url: result.sessionUrl });

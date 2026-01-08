@@ -82,8 +82,8 @@ export async function POST(request: Request) {
     // Create member
     const result = await createMember(gymId, parsed.data);
 
-    if (!result.success) {
-      return apiError(result.error, 400);
+    if (!result || !result.success) {
+      return apiError(result?.error || { code: 'CREATE_FAILED', message: 'Failed to create member' }, 400);
     }
 
     return apiSuccess(result.member, 201);

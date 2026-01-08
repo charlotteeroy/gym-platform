@@ -28,8 +28,8 @@ export async function POST(
 
     const result = await checkInMember(id);
 
-    if (!result.success) {
-      return apiError(result.error, 400);
+    if (!result || !result.success) {
+      return apiError(result?.error || { code: 'CHECKIN_FAILED', message: 'Failed to check in member' }, 400);
     }
 
     return apiSuccess(result.checkIn, 201);

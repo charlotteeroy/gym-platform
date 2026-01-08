@@ -76,8 +76,8 @@ export async function PATCH(
 
     const result = await updateMember(id, parsed.data);
 
-    if (!result.success) {
-      return apiError(result.error, 400);
+    if (!result || !result.success) {
+      return apiError(result?.error || { code: 'UPDATE_FAILED', message: 'Failed to update member' }, 400);
     }
 
     return apiSuccess(result.member);
@@ -113,8 +113,8 @@ export async function DELETE(
 
     const result = await deleteMember(id);
 
-    if (!result.success) {
-      return apiError(result.error!, 400);
+    if (!result || !result.success) {
+      return apiError(result?.error || { code: 'DELETE_FAILED', message: 'Failed to delete member' }, 400);
     }
 
     return apiSuccess({ message: 'Member deleted successfully' });
