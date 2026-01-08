@@ -4,7 +4,6 @@ export {
   type TokenValidationResult,
   hashPassword,
   verifyPassword,
-  createSession,
   registerUser,
   loginUser,
   validateSession,

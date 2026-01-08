@@ -1,11 +1,22 @@
 import bcrypt from 'bcryptjs';
 import { prisma, type User, type Session } from '@gym/database';
-import { type LoginInput, type RegisterInput, generateToken, ERROR_CODES, type ApiError } from '@gym/shared';
+import {
+  type LoginInput,
+  type RegisterInput,
+  generateToken,
+  ERROR_CODES,
+  type ApiError,
+} from '@gym/shared';
+import { addDays } from '@gym/shared';
 
 const SALT_ROUNDS = 12;
-const SESSION_EXPIRY_DAYS = 7;
+const SESSION_DURATION_DAYS = 30;
 
 export type AuthResult =
+  | { success: true; user: User; session: Session }
+  | { success: false; error: ApiError };
+
+export type TokenValidationResult =
   | { success: true; user: User; session: Session }
   | { success: false; error: ApiError };
 
@@ -24,12 +35,11 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
 }
 
 /**
- * Create a new session for a user
+ * Create a new session for a user (internal use only)
  */
-export async function createSession(userId: string): Promise<Session> {
+async function createAuthSession(userId: string): Promise<Session> {
   const token = generateToken(64);
-  const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + SESSION_EXPIRY_DAYS);
+  const expiresAt = addDays(new Date(), SESSION_DURATION_DAYS);
 
   return prisma.session.create({
     data: {
@@ -44,7 +54,7 @@ export async function createSession(userId: string): Promise<Session> {
  * Register a new user
  */
 export async function registerUser(input: RegisterInput): Promise<AuthResult> {
-  // Check if email already exists
+  // Check if user already exists
   const existingUser = await prisma.user.findUnique({
     where: { email: input.email },
   });
@@ -54,7 +64,7 @@ export async function registerUser(input: RegisterInput): Promise<AuthResult> {
       success: false,
       error: {
         code: ERROR_CODES.ALREADY_EXISTS,
-        message: 'An account with this email already exists',
+        message: 'A user with this email already exists',
       },
     };
   }
@@ -71,7 +81,7 @@ export async function registerUser(input: RegisterInput): Promise<AuthResult> {
   });
 
   // Create session
-  const session = await createSession(user.id);
+  const session = await createAuthSession(user.id);
 
   return { success: true, user, session };
 }
@@ -79,9 +89,7 @@ export async function registerUser(input: RegisterInput): Promise<AuthResult> {
 /**
  * Login a user
  */
-export async function loginUser(
-  input: LoginInput
-): Promise<AuthResult> {
+export async function loginUser(input: LoginInput): Promise<AuthResult> {
   // Find user
   const user = await prisma.user.findUnique({
     where: { email: input.email },
@@ -111,7 +119,7 @@ export async function loginUser(
   }
 
   // Create session
-  const session = await createSession(user.id);
+  const session = await createAuthSession(user.id);
 
   return { success: true, user, session };
 }
@@ -119,54 +127,183 @@ export async function loginUser(
 /**
  * Validate a session token
  */
-export async function validateSession(
-  token: string
-): Promise<{ user: User; session: Session } | null> {
+export async function validateSession(token: string): Promise<TokenValidationResult> {
   const session = await prisma.session.findUnique({
     where: { token },
     include: { user: true },
   });
 
   if (!session) {
-    return null;
+    return {
+      success: false,
+      error: {
+        code: ERROR_CODES.SESSION_EXPIRED,
+        message: 'Session not found',
+      },
+    };
   }
 
-  // Check if session has expired
   if (session.expiresAt < new Date()) {
     // Delete expired session
     await prisma.session.delete({ where: { id: session.id } });
-    return null;
+
+    return {
+      success: false,
+      error: {
+        code: ERROR_CODES.SESSION_EXPIRED,
+        message: 'Session has expired',
+      },
+    };
   }
 
-  return { user: session.user, session };
+  return {
+    success: true,
+    user: session.user,
+    session,
+  };
 }
 
 /**
  * Logout (delete session)
  */
 export async function logout(token: string): Promise<void> {
-  await prisma.session.delete({ where: { token } }).catch(() => {
-    // Ignore errors if session doesn't exist
+  await prisma.session.deleteMany({
+    where: { token },
   });
 }
 
 /**
  * Delete all sessions for a user
  */
-export async function deleteAllSessions(userId: string): Promise<void> {
-  await prisma.session.deleteMany({ where: { userId } });
+export async function logoutAllSessions(userId: string): Promise<void> {
+  await prisma.session.deleteMany({
+    where: { userId },
+  });
 }
 
 /**
- * Get user by ID
+ * Create password reset token
  */
-export async function getUserById(id: string): Promise<User | null> {
-  return prisma.user.findUnique({ where: { id } });
+export async function createPasswordResetToken(email: string): Promise<string | null> {
+  const user = await prisma.user.findUnique({
+    where: { email },
+  });
+
+  if (!user) {
+    // Return null but don't reveal that user doesn't exist
+    return null;
+  }
+
+  // Delete any existing tokens for this email
+  await prisma.passwordResetToken.deleteMany({
+    where: { email },
+  });
+
+  // Create new token
+  const token = generateToken(64);
+  const expiresAt = addDays(new Date(), 1); // 24 hours
+
+  await prisma.passwordResetToken.create({
+    data: {
+      email,
+      token,
+      expiresAt,
+    },
+  });
+
+  return token;
 }
 
 /**
- * Get user by email
+ * Reset password using token
  */
-export async function getUserByEmail(email: string): Promise<User | null> {
-  return prisma.user.findUnique({ where: { email } });
+export async function resetPassword(
+  token: string,
+  newPassword: string
+): Promise<{ success: boolean; error?: ApiError }> {
+  const resetToken = await prisma.passwordResetToken.findUnique({
+    where: { token },
+  });
+
+  if (!resetToken || resetToken.expiresAt < new Date()) {
+    return {
+      success: false,
+      error: {
+        code: ERROR_CODES.INVALID_INPUT,
+        message: 'Invalid or expired reset token',
+      },
+    };
+  }
+
+  // Hash new password
+  const passwordHash = await hashPassword(newPassword);
+
+  // Update user password
+  await prisma.user.update({
+    where: { email: resetToken.email },
+    data: { passwordHash },
+  });
+
+  // Delete reset token
+  await prisma.passwordResetToken.delete({
+    where: { id: resetToken.id },
+  });
+
+  // Invalidate all sessions
+  const user = await prisma.user.findUnique({
+    where: { email: resetToken.email },
+  });
+
+  if (user) {
+    await logoutAllSessions(user.id);
+  }
+
+  return { success: true };
+}
+
+/**
+ * Change password for authenticated user
+ */
+export async function changePassword(
+  userId: string,
+  currentPassword: string,
+  newPassword: string
+): Promise<{ success: boolean; error?: ApiError }> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+
+  if (!user) {
+    return {
+      success: false,
+      error: {
+        code: ERROR_CODES.NOT_FOUND,
+        message: 'User not found',
+      },
+    };
+  }
+
+  // Verify current password
+  const isValid = await verifyPassword(currentPassword, user.passwordHash);
+
+  if (!isValid) {
+    return {
+      success: false,
+      error: {
+        code: ERROR_CODES.INVALID_CREDENTIALS,
+        message: 'Current password is incorrect',
+      },
+    };
+  }
+
+  // Hash new password
+  const passwordHash = await hashPassword(newPassword);
+
+  // Update password
+  await prisma.user.update({
+    where: { id: userId },
+    data: { passwordHash },
+  });
+
+  return { success: true };
 }
