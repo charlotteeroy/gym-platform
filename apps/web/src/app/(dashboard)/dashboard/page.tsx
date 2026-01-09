@@ -85,7 +85,7 @@ export default async function DashboardPage() {
             />
           </div>
           <div className="lg:col-span-2">
-            <TrendCards trends={trends} />
+            <TrendCards trends={trends.map(t => ({ ...t, trend: t.trend as "up" | "down" | "stable" }))} />
           </div>
         </div>
 
