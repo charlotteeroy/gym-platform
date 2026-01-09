@@ -90,7 +90,7 @@ export default async function DashboardPage() {
         </div>
 
         {/* Alerts Section - Only show if there are alerts */}
-        {alerts.length > 0 && <AlertsList alerts={alerts} />}
+        {alerts.length > 0 && <AlertsList alerts={alerts.map(a => ({ ...a, severity: a.severity as "info" | "critical" | "warning" }))} />}
 
         {/* At-Risk Members */}
         <AtRiskMembers members={atRiskMembers} />
