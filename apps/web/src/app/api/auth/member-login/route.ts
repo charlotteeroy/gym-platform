@@ -19,13 +19,17 @@ export async function POST(request: Request) {
     // Login the user
     const result = await loginUser({ email, password });
 
-    if (!result || !result.success) {
-      return apiUnauthorized(result?.error?.message || 'Login failed');
+    if (!result.success) {
+      return apiUnauthorized(result.error?.message ?? 'Login failed');
     }
+
+    // Session and user exist when success is true
+    const session = result.session!;
+    const user = result.user!;
 
     // Check if this user is a member
     const member = await prisma.member.findFirst({
-      where: { userId: result.user.id },
+      where: { userId: user.id },
       include: { gym: true },
     });
 
@@ -35,12 +39,12 @@ export async function POST(request: Request) {
 
     // Set session cookie
     const cookieStore = await cookies();
-    cookieStore.set(setSessionCookie(result.session.token, result.session.expiresAt));
+    cookieStore.set(setSessionCookie(session.token, session.expiresAt));
 
     return apiSuccess({
       user: {
-        id: result.user.id,
-        email: result.user.email,
+        id: user.id,
+        email: user.email,
       },
       member: {
         id: member.id,
