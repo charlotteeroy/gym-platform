@@ -17,9 +17,8 @@ services:
       pnpm db:generate &&
       pnpm db:push &&
       pnpm db:seed &&
-      pnpm build &&
-      cp -r apps/web/.next/static apps/web/.next/standalone/apps/web/.next/static
-    startCommand: node apps/web/.next/standalone/apps/web/server.js
+      pnpm build
+    startCommand: pnpm --filter @gym/web start
     envVars:
       - key: NODE_VERSION
         value: 20
