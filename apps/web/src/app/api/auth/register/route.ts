@@ -1,3 +1,15 @@
+/**
+ * Register API Route
+ *
+ * Creates a new user account and establishes a session.
+ *
+ * POST /api/auth/register
+ * Body: { email: string, password: string }
+ *
+ * Returns: { user: { id, email } } on success (201 Created)
+ *
+ * Note: Uses AuthResult discriminated union - see login/route.ts for explanation.
+ */
 import { cookies } from 'next/headers';
 import { registerUser } from '@gym/core';
 import { registerSchema } from '@gym/shared';
@@ -25,11 +37,11 @@ export async function POST(request: Request) {
     // Register user
     const result = await registerUser(parsed.data);
 
-    if (!result || !result.success) {
-      return apiError(result?.error || { code: 'REGISTRATION_FAILED', message: 'Registration failed' }, 400);
+    if (!result.success) {
+      return apiError(result.error, 400);
     }
 
-    // Set session cookie
+    // Set session cookie - TypeScript knows session/user exist when success is true
     const cookieStore = await cookies();
     cookieStore.set(setSessionCookie(result.session.token, result.session.expiresAt));
 

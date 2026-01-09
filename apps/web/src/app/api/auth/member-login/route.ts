@@ -1,3 +1,17 @@
+/**
+ * Member Login API Route
+ *
+ * Authenticates a gym member (customer) and creates a session.
+ * Unlike /api/auth/login, this route verifies the user has a Member record,
+ * not just a Staff record.
+ *
+ * POST /api/auth/member-login
+ * Body: { email: string, password: string }
+ *
+ * Returns: { user: { id, email }, member: { id, firstName, lastName, gymId, gymName } }
+ *
+ * Note: Uses AuthResult discriminated union - see login/route.ts for explanation.
+ */
 import { cookies } from 'next/headers';
 import { loginUser } from '@gym/core';
 import { prisma } from '@gym/database';
@@ -19,11 +33,11 @@ export async function POST(request: Request) {
     // Login the user
     const result = await loginUser({ email, password });
 
-    if (!result || !result.success) {
-      return apiUnauthorized(result?.error?.message || 'Login failed');
+    if (!result.success) {
+      return apiUnauthorized(result.error.message);
     }
 
-    // Check if this user is a member
+    // Check if this user is a member - TypeScript knows user exists when success is true
     const member = await prisma.member.findFirst({
       where: { userId: result.user.id },
       include: { gym: true },

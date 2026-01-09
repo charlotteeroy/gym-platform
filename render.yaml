@@ -1,40 +1,107 @@
+# =============================================================================
+# Render Blueprint Configuration
+# =============================================================================
+# This file defines the infrastructure for deploying the Gym Platform to Render.
+#
+# To deploy using this blueprint:
+# 1. Go to Render Dashboard
+# 2. Click "New" -> "Blueprint"
+# 3. Connect your GitHub repository
+# 4. Render will automatically create the database and web service
+#
+# Alternatively, you can create services manually and use these values
+# as reference for the Build Command, Start Command, and Environment Variables.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# DATABASE CONFIGURATION
+# -----------------------------------------------------------------------------
+# PostgreSQL database for storing all application data
 databases:
   - name: smashbox-db
     databaseName: smashbox
     user: smashbox_admin
-    plan: free
-    region: oregon
+    plan: free           # Free tier: 256MB storage, 97 hours/month uptime
+    region: oregon       # Choose region closest to your users
 
+# -----------------------------------------------------------------------------
+# WEB SERVICE CONFIGURATION
+# -----------------------------------------------------------------------------
 services:
   - type: web
     name: smashbox
     runtime: node
-    plan: free
-    region: oregon
+    plan: free           # Free tier: 750 hours/month, sleeps after 15 min inactivity
+    region: oregon       # Must match database region for lowest latency
+
+    # -------------------------------------------------------------------------
+    # BUILD COMMAND
+    # -------------------------------------------------------------------------
+    # This runs during deployment to prepare the application.
+    #
+    # Step-by-step breakdown:
+    # 1. npm install -g pnpm          - Install pnpm (not available by default on Render)
+    # 2. NODE_ENV=development pnpm install - Install all dependencies (need dev deps for build)
+    # 3. pnpm db:generate             - Generate Prisma client from schema
+    # 4. pnpm db:push                 - Apply schema changes to database
+    # 5. pnpm db:seed                 - Populate database with test data
+    # 6. pnpm build                   - Build all packages via Turborepo
+    #
+    # NOTE: We do NOT use standalone mode, so no file copying is needed.
+    # -------------------------------------------------------------------------
     buildCommand: |
       npm install -g pnpm &&
       NODE_ENV=development pnpm install &&
       pnpm db:generate &&
       pnpm db:push &&
       pnpm db:seed &&
-      pnpm build &&
-      cp -r apps/web/public apps/web/.next/standalone/apps/web/ &&
-      cp -r apps/web/.next/static apps/web/.next/standalone/apps/web/.next/
-    startCommand: node apps/web/.next/standalone/apps/web/server.js
+      pnpm build
+
+    # -------------------------------------------------------------------------
+    # START COMMAND
+    # -------------------------------------------------------------------------
+    # This runs to start the application after build completes.
+    #
+    # We use `pnpm --filter @gym/web start` which runs `next start` in the web app.
+    # This is simpler and more reliable than standalone mode for Render deployment.
+    #
+    # DO NOT use: node apps/web/.next/standalone/apps/web/server.js
+    # That requires standalone mode which we've disabled.
+    # -------------------------------------------------------------------------
+    startCommand: pnpm --filter @gym/web start
+
+    # -------------------------------------------------------------------------
+    # ENVIRONMENT VARIABLES
+    # -------------------------------------------------------------------------
     envVars:
+      # Node.js version - use LTS version 20
       - key: NODE_VERSION
         value: 20
+
+      # Database connection - automatically linked from the database above
+      # This creates the PostgreSQL connection string automatically
       - key: DATABASE_URL
         fromDatabase:
           name: smashbox-db
           property: connectionString
+
+      # NextAuth secret for session encryption - auto-generated secure value
       - key: NEXTAUTH_SECRET
         generateValue: true
+
+      # NextAuth URL - set this to your deployed URL in Render dashboard
+      # Example: https://your-app.onrender.com
       - key: NEXTAUTH_URL
         sync: false
+
+      # Production mode
       - key: NODE_ENV
         value: production
+
+      # Port that Next.js should listen on (Render's default)
       - key: PORT
         value: 10000
+
+      # Bind to all network interfaces (required for Render)
       - key: HOSTNAME
         value: 0.0.0.0
