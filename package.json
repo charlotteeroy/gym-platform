@@ -20,11 +20,13 @@
     "db:seed": "pnpm --filter @gym/database db:seed",
     "clean": "turbo clean && rm -rf node_modules"
   },
+  "dependencies": {
+    "turbo": "^2.0.0"
+  },
   "devDependencies": {
     "@playwright/test": "^1.57.0",
     "@types/node": "^20.10.0",
     "prettier": "^3.1.0",
-    "turbo": "^2.0.0",
     "typescript": "^5.3.0"
   },
   "packageManager": "pnpm@8.15.0",

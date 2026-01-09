@@ -79,18 +79,18 @@ export default async function DashboardPage() {
           <div className="lg:col-span-1">
             <HealthScore
               score={health.score}
-              status={health.status}
-              trend={health.trend}
+              status={health.status as "critical" | "warning" | "healthy"}
+              trend={health.trend as "declining" | "improving" | "stable"}
               factors={health.factors}
             />
           </div>
           <div className="lg:col-span-2">
-            <TrendCards trends={trends} />
+            <TrendCards trends={trends.map(t => ({ ...t, trend: t.trend as "up" | "down" | "stable" }))} />
           </div>
         </div>
 
         {/* Alerts Section - Only show if there are alerts */}
-        {alerts.length > 0 && <AlertsList alerts={alerts} />}
+        {alerts.length > 0 && <AlertsList alerts={alerts.map(a => ({ ...a, severity: a.severity as "info" | "critical" | "warning" }))} />}
 
         {/* At-Risk Members */}
         <AtRiskMembers members={atRiskMembers} />

@@ -13,9 +13,10 @@ services:
     region: oregon
     buildCommand: |
       npm install -g pnpm &&
-      pnpm install &&
+      NODE_ENV=development pnpm install &&
       pnpm db:generate &&
       pnpm db:push &&
+      pnpm db:seed &&
       pnpm build &&
       cp -r apps/web/public apps/web/.next/standalone/apps/web/ &&
       cp -r apps/web/.next/static apps/web/.next/standalone/apps/web/.next/
