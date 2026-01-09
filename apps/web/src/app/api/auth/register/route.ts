@@ -25,23 +25,19 @@ export async function POST(request: Request) {
     // Register user
     const result = await registerUser(parsed.data);
 
-    if (!result.success) {
-      return apiError(result.error ?? { code: 'REGISTRATION_FAILED', message: 'Registration failed' }, 400);
+    if (!result || !result.success) {
+      return apiError(result?.error || { code: 'REGISTRATION_FAILED', message: 'Registration failed' }, 400);
     }
-
-    // Session and user exist when success is true
-    const session = result.session!;
-    const user = result.user!;
 
     // Set session cookie
     const cookieStore = await cookies();
-    cookieStore.set(setSessionCookie(session.token, session.expiresAt));
+    cookieStore.set(setSessionCookie(result.session.token, result.session.expiresAt));
 
     return apiSuccess(
       {
         user: {
-          id: user.id,
-          email: user.email,
+          id: result.user.id,
+          email: result.user.email,
         },
       },
       201

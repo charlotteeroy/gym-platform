@@ -25,22 +25,18 @@ export async function POST(request: Request) {
     // Attempt login
     const result = await loginUser(parsed.data);
 
-    if (!result.success) {
-      return apiError(result.error ?? { code: 'LOGIN_FAILED', message: 'Login failed' }, 401);
+    if (!result || !result.success) {
+      return apiError(result?.error || { code: 'LOGIN_FAILED', message: 'Login failed' }, 401);
     }
-
-    // Session exists when success is true
-    const session = result.session!;
-    const user = result.user!;
 
     // Set session cookie
     const cookieStore = await cookies();
-    cookieStore.set(setSessionCookie(session.token, session.expiresAt));
+    cookieStore.set(setSessionCookie(result.session.token, result.session.expiresAt));
 
     return apiSuccess({
       user: {
-        id: user.id,
-        email: user.email,
+        id: result.user.id,
+        email: result.user.email,
       },
     });
   } catch (error) {

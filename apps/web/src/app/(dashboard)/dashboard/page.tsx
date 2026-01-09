@@ -66,24 +66,6 @@ export default async function DashboardPage() {
     return 'Your gym is performing well';
   };
 
-  // Type assertions for component props
-  const typedHealth = {
-    score: health.score,
-    status: health.status as 'critical' | 'warning' | 'healthy',
-    trend: health.trend as 'declining' | 'stable' | 'improving',
-    factors: health.factors,
-  };
-
-  const typedAlerts = alerts.map((a) => ({
-    ...a,
-    severity: a.severity as 'critical' | 'warning' | 'info',
-  }));
-
-  const typedTrends = trends.map((t) => ({
-    ...t,
-    trend: t.trend as 'up' | 'down' | 'stable',
-  }));
-
   return (
     <>
       <Header
@@ -96,19 +78,19 @@ export default async function DashboardPage() {
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="lg:col-span-1">
             <HealthScore
-              score={typedHealth.score}
-              status={typedHealth.status}
-              trend={typedHealth.trend}
-              factors={typedHealth.factors}
+              score={health.score}
+              status={health.status as "critical" | "warning" | "healthy"}
+              trend={health.trend as "declining" | "improving" | "stable"}
+              factors={health.factors}
             />
           </div>
           <div className="lg:col-span-2">
-            <TrendCards trends={typedTrends} />
+            <TrendCards trends={trends.map(t => ({ ...t, trend: t.trend as "up" | "down" | "stable" }))} />
           </div>
         </div>
 
         {/* Alerts Section - Only show if there are alerts */}
-        {typedAlerts.length > 0 && <AlertsList alerts={typedAlerts} />}
+        {alerts.length > 0 && <AlertsList alerts={alerts.map(a => ({ ...a, severity: a.severity as "info" | "critical" | "warning" }))} />}
 
         {/* At-Risk Members */}
         <AtRiskMembers members={atRiskMembers} />
