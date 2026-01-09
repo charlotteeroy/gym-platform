@@ -13,7 +13,7 @@ services:
     region: oregon
     buildCommand: |
       npm install -g pnpm &&
-      pnpm install &&
+      NODE_ENV=development pnpm install &&
       pnpm db:generate &&
       pnpm db:push &&
       pnpm db:seed &&
