@@ -1,3 +1,15 @@
+/**
+ * Register API Route
+ *
+ * Creates a new user account and establishes a session.
+ *
+ * POST /api/auth/register
+ * Body: { email: string, password: string }
+ *
+ * Returns: { user: { id, email } } on success (201 Created)
+ *
+ * Note: Uses AuthResult discriminated union - see login/route.ts for explanation.
+ */
 import { cookies } from 'next/headers';
 import { registerUser } from '@gym/core';
 import { registerSchema } from '@gym/shared';

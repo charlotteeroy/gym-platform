@@ -1,3 +1,17 @@
+/**
+ * Member Login API Route
+ *
+ * Authenticates a gym member (customer) and creates a session.
+ * Unlike /api/auth/login, this route verifies the user has a Member record,
+ * not just a Staff record.
+ *
+ * POST /api/auth/member-login
+ * Body: { email: string, password: string }
+ *
+ * Returns: { user: { id, email }, member: { id, firstName, lastName, gymId, gymName } }
+ *
+ * Note: Uses AuthResult discriminated union - see login/route.ts for explanation.
+ */
 import { cookies } from 'next/headers';
 import { loginUser } from '@gym/core';
 import { prisma } from '@gym/database';

@@ -1,3 +1,18 @@
+/**
+ * Login API Route
+ *
+ * Authenticates a user (gym staff/owner) and creates a session.
+ *
+ * POST /api/auth/login
+ * Body: { email: string, password: string }
+ *
+ * Returns: { user: { id, email } } on success
+ *
+ * Note: This route uses the AuthResult discriminated union type from @gym/core.
+ * When result.success is false, result.error is guaranteed to exist.
+ * When result.success is true, result.user and result.session are guaranteed.
+ * TypeScript properly narrows the type after checking result.success.
+ */
 import { cookies } from 'next/headers';
 import { loginUser } from '@gym/core';
 import { loginSchema } from '@gym/shared';
