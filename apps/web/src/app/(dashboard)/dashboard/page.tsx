@@ -1,6 +1,6 @@
 import { getSession } from '@/lib/auth';
 import { prisma } from '@gym/database';
-import { getGymHealth, getAlerts, getAtRiskMembers, getTrends } from '@gym/core';
+import { getGymHealth, getAlerts, getAtRiskMembers, getTrends, type Alert, type GymHealthScore, type TrendData } from '@gym/core';
 import { redirect } from 'next/navigation';
 import { Header } from '@/components/layout/header';
 import { HealthScore } from '@/components/dashboard/health-score';
@@ -23,7 +23,7 @@ async function getDashboardData() {
   const gymId = staff.gymId;
 
   // Fetch all analytics data in parallel
-  const [health, alerts, atRiskMembers, trends] = await Promise.all([
+  const [health, alerts, atRiskMembers, trends]: [GymHealthScore, Alert[], Awaited<ReturnType<typeof getAtRiskMembers>>, TrendData[]] = await Promise.all([
     getGymHealth(gymId),
     getAlerts(gymId),
     getAtRiskMembers(gymId, 10),
@@ -79,18 +79,18 @@ export default async function DashboardPage() {
           <div className="lg:col-span-1">
             <HealthScore
               score={health.score}
-              status={health.status as "critical" | "warning" | "healthy"}
-              trend={health.trend as "declining" | "improving" | "stable"}
+              status={health.status}
+              trend={health.trend}
               factors={health.factors}
             />
           </div>
           <div className="lg:col-span-2">
-            <TrendCards trends={trends.map(t => ({ ...t, trend: t.trend as "up" | "down" | "stable" }))} />
+            <TrendCards trends={trends} />
           </div>
         </div>
 
         {/* Alerts Section - Only show if there are alerts */}
-        {alerts.length > 0 && <AlertsList alerts={alerts.map(a => ({ ...a, severity: a.severity as "info" | "critical" | "warning" }))} />}
+        {alerts.length > 0 && <AlertsList alerts={alerts} />}
 
         {/* At-Risk Members */}
         <AtRiskMembers members={atRiskMembers} />
