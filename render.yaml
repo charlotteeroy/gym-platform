@@ -11,8 +11,16 @@ services:
     runtime: node
     plan: free
     region: oregon
-    buildCommand: npm install -g pnpm && pnpm install && pnpm db:generate && pnpm --filter @gym/web build
-    startCommand: pnpm --filter @gym/web start
+    buildCommand: |
+      npm install -g pnpm &&
+      pnpm install &&
+      pnpm db:generate &&
+      pnpm db:push &&
+      pnpm db:seed &&
+      pnpm build &&
+      cp -r apps/web/public apps/web/.next/standalone/apps/web/ &&
+      cp -r apps/web/.next/static apps/web/.next/standalone/apps/web/.next/
+    startCommand: node apps/web/.next/standalone/apps/web/server.js
     envVars:
       - key: NODE_VERSION
         value: 20
@@ -26,3 +34,7 @@ services:
         sync: false
       - key: NODE_ENV
         value: production
+      - key: PORT
+        value: 10000
+      - key: HOSTNAME
+        value: 0.0.0.0
