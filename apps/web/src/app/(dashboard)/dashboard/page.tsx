@@ -80,7 +80,7 @@ export default async function DashboardPage() {
             <HealthScore
               score={health.score}
               status={health.status as "critical" | "warning" | "healthy"}
-              trend={health.trend}
+              trend={health.trend as "declining" | "improving" | "stable"}
               factors={health.factors}
             />
           </div>
