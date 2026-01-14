@@ -50,6 +50,26 @@ export async function getCurrentStaff(gymId: string) {
   return staff;
 }
 
+export async function getStaffWithGym() {
+  const session = await getSession();
+
+  if (!session) {
+    return null;
+  }
+
+  const staff = await prisma.staff.findFirst({
+    where: {
+      userId: session.user.id,
+      isActive: true,
+    },
+    include: {
+      gym: true,
+    },
+  });
+
+  return staff;
+}
+
 export async function getCurrentMember(gymId: string) {
   const session = await getSession();
 

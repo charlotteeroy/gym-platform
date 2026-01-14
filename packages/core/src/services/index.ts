@@ -1,10 +1,12 @@
 // Auth service
 export {
   type AuthResult,
+  type MemberAuthResult,
   type TokenValidationResult,
   hashPassword,
   verifyPassword,
   registerUser,
+  registerMember,
   loginUser,
   validateSession,
   logout,
@@ -32,6 +34,8 @@ export {
 export {
   type MemberResult,
   type MemberWithSubscription,
+  type MemberAnalytics,
+  type MemberProfile,
   createMember,
   getMemberById,
   getMemberWithSubscription,
@@ -42,6 +46,8 @@ export {
   checkInMember,
   getMemberCheckIns,
   getMemberStats,
+  getMemberAnalytics,
+  getMemberProfile,
   deleteMember,
 } from './member.service';
 
@@ -130,3 +136,19 @@ export {
   getTrends,
   getQuickStats,
 } from './analytics.service';
+
+// Tag service
+export {
+  type TagResult,
+  type MemberTagResult,
+  createTag,
+  updateTag,
+  deleteTag,
+  getTagById,
+  listTags,
+  addTagToMember,
+  removeTagFromMember,
+  getMemberTags,
+  getMembersByTag,
+  createDefaultTags,
+} from './tag.service';

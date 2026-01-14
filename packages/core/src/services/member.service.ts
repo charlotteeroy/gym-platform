@@ -202,16 +202,23 @@ export async function updateMemberStatus(
   return { success: true, member };
 }
 
+// Extended member type with calculated fields
+type MemberWithActivity = Member & {
+  visitCount?: number;
+  lastActivity?: Date | null;
+};
+
 /**
  * List members with pagination and filtering
  */
 export async function listMembers(
   gymId: string,
   filters: MemberFilterInput
-): Promise<PaginatedResponse<Member>> {
-  const { status, search, page, limit, sortBy, sortOrder } = filters;
+): Promise<PaginatedResponse<MemberWithActivity>> {
+  const { status, search, tags, activityLevel, page, limit, sortBy, sortOrder } = filters;
 
-  const where = {
+  // Build base where clause
+  const baseWhere: Record<string, unknown> = {
     gymId,
     ...(status ? { status } : {}),
     ...(search
@@ -225,15 +232,112 @@ export async function listMembers(
       : {}),
   };
 
-  const [items, total] = await Promise.all([
-    prisma.member.findMany({
-      where,
-      orderBy: { [sortBy]: sortOrder },
-      skip: (page - 1) * limit,
-      take: limit,
-    }),
-    prisma.member.count({ where }),
-  ]);
+  // Add tags filter
+  if (tags && tags.length > 0) {
+    baseWhere.tags = {
+      some: {
+        tagId: { in: tags },
+      },
+    };
+  }
+
+  // For activity-based filtering and sorting, we need to fetch with check-in counts
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+  // Get all matching members with their check-in counts
+  const membersWithCheckIns = await prisma.member.findMany({
+    where: baseWhere,
+    include: {
+      checkIns: {
+        where: { checkedInAt: { gte: thirtyDaysAgo } },
+        select: { id: true, checkedInAt: true },
+      },
+      tags: {
+        include: { tag: { select: { id: true, name: true, color: true } } },
+      },
+    },
+  });
+
+  // Calculate activity metrics for each member
+  const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+
+  let processedMembers = membersWithCheckIns.map((member) => {
+    const visitCount = member.checkIns.length;
+    const lastCheckIn = member.checkIns.length > 0
+      ? member.checkIns.reduce((latest, current) =>
+          current.checkedInAt > latest.checkedInAt ? current : latest
+        )
+      : null;
+
+    // Determine activity level
+    let memberActivityLevel: 'high' | 'medium' | 'low' | 'inactive' | 'declining';
+    if (visitCount >= 12) {
+      memberActivityLevel = 'high';
+    } else if (visitCount >= 4) {
+      memberActivityLevel = 'medium';
+    } else if (visitCount >= 1) {
+      memberActivityLevel = 'low';
+    } else {
+      memberActivityLevel = 'inactive';
+    }
+
+    // Check if declining (active member who hasn't visited in 14+ days)
+    const isDeclining = member.status === 'ACTIVE' &&
+      (!lastCheckIn || lastCheckIn.checkedInAt < fourteenDaysAgo);
+
+    return {
+      ...member,
+      checkIns: undefined, // Remove the raw checkIns array
+      visitCount,
+      lastActivity: lastCheckIn?.checkedInAt ?? null,
+      activityLevel: memberActivityLevel,
+      isDeclining,
+    };
+  });
+
+  // Filter by activity level if specified
+  if (activityLevel) {
+    if (activityLevel === 'declining') {
+      processedMembers = processedMembers.filter((m) => m.isDeclining);
+    } else {
+      processedMembers = processedMembers.filter(
+        (m) => m.activityLevel === activityLevel
+      );
+    }
+  }
+
+  // Sort
+  if (sortBy === 'visitCount') {
+    processedMembers.sort((a, b) =>
+      sortOrder === 'desc' ? b.visitCount - a.visitCount : a.visitCount - b.visitCount
+    );
+  } else if (sortBy === 'lastActivity') {
+    processedMembers.sort((a, b) => {
+      const aTime = a.lastActivity?.getTime() ?? 0;
+      const bTime = b.lastActivity?.getTime() ?? 0;
+      return sortOrder === 'desc' ? bTime - aTime : aTime - bTime;
+    });
+  } else {
+    // Default Prisma-like sorting for other fields
+    processedMembers.sort((a, b) => {
+      const aVal = (a as Record<string, unknown>)[sortBy];
+      const bVal = (b as Record<string, unknown>)[sortBy];
+      if (aVal === null || aVal === undefined) return sortOrder === 'desc' ? 1 : -1;
+      if (bVal === null || bVal === undefined) return sortOrder === 'desc' ? -1 : 1;
+      if (aVal < bVal) return sortOrder === 'desc' ? 1 : -1;
+      if (aVal > bVal) return sortOrder === 'desc' ? -1 : 1;
+      return 0;
+    });
+  }
+
+  const total = processedMembers.length;
+
+  // Paginate
+  const items = processedMembers.slice((page - 1) * limit, page * limit).map((m) => {
+    // Remove internal fields from the returned object
+    const { activityLevel: _activityLevel, isDeclining: _isDeclining, ...rest } = m;
+    return rest as MemberWithActivity;
+  });
 
   return {
     items,
@@ -391,4 +495,273 @@ export async function deleteMember(memberId: string): Promise<{ success: boolean
   });
 
   return { success: true };
+}
+
+export type MemberAnalytics = {
+  dailyActivity: Array<{ date: string; checkIns: number; bookings: number }>;
+  hourlyDistribution: Array<{ hour: number; count: number }>;
+  summary: {
+    totalCheckIns: number;
+    avgWeeklyVisits: number;
+    mostActiveHour: number | null;
+    mostActiveDay: string | null;
+    streakDays: number;
+    lastVisit: Date | null;
+  };
+};
+
+/**
+ * Get member analytics for charts
+ */
+export async function getMemberAnalytics(
+  memberId: string,
+  days: number = 30
+): Promise<MemberAnalytics> {
+  const now = new Date();
+  const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+
+  // Get all check-ins for the period
+  const checkIns = await prisma.checkIn.findMany({
+    where: {
+      memberId,
+      checkedInAt: { gte: startDate },
+    },
+    orderBy: { checkedInAt: 'asc' },
+  });
+
+  // Get all bookings for the period
+  const bookings = await prisma.booking.findMany({
+    where: {
+      memberId,
+      status: { in: ['CONFIRMED', 'ATTENDED'] },
+      createdAt: { gte: startDate },
+    },
+    include: {
+      session: true,
+    },
+  });
+
+  // Calculate daily activity
+  const dailyMap: Record<string, { checkIns: number; bookings: number }> = {};
+
+  // Helper to get date string
+  const toDateStr = (date: Date): string => date.toISOString().slice(0, 10);
+
+  // Initialize all days
+  for (let i = 0; i < days; i++) {
+    const date = new Date(startDate.getTime() + i * 24 * 60 * 60 * 1000);
+    const dateStr = toDateStr(date);
+    dailyMap[dateStr] = { checkIns: 0, bookings: 0 };
+  }
+
+  // Count check-ins per day
+  checkIns.forEach((checkIn) => {
+    const dateStr = toDateStr(checkIn.checkedInAt);
+    if (dailyMap[dateStr]) {
+      dailyMap[dateStr].checkIns++;
+    }
+  });
+
+  // Count bookings per day
+  bookings.forEach((booking) => {
+    const dateStr = toDateStr(booking.createdAt);
+    if (dailyMap[dateStr]) {
+      dailyMap[dateStr].bookings++;
+    }
+  });
+
+  const dailyActivity = Object.entries(dailyMap)
+    .map(([date, data]) => ({ date, ...data }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  // Calculate hourly distribution
+  const hourlyMap: Record<number, number> = {};
+  for (let i = 0; i < 24; i++) {
+    hourlyMap[i] = 0;
+  }
+
+  checkIns.forEach((checkIn) => {
+    const hour = checkIn.checkedInAt.getHours();
+    if (hourlyMap[hour] !== undefined) {
+      hourlyMap[hour]++;
+    }
+  });
+
+  const hourlyDistribution = Object.entries(hourlyMap)
+    .map(([hour, count]) => ({ hour: parseInt(hour), count }))
+    .sort((a, b) => a.hour - b.hour);
+
+  // Find most active hour
+  const maxHourCount = Math.max(...hourlyDistribution.map((h) => h.count));
+  const mostActiveHour = maxHourCount > 0
+    ? hourlyDistribution.find((h) => h.count === maxHourCount)?.hour ?? null
+    : null;
+
+  // Calculate day of week distribution
+  const dayMap: Record<string, number> = {
+    Sunday: 0, Monday: 0, Tuesday: 0, Wednesday: 0,
+    Thursday: 0, Friday: 0, Saturday: 0,
+  };
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+  checkIns.forEach((checkIn) => {
+    const dayIndex = checkIn.checkedInAt.getDay();
+    const dayName = dayNames[dayIndex];
+    if (dayName && dayMap[dayName] !== undefined) {
+      dayMap[dayName]++;
+    }
+  });
+
+  const maxDayCount = Math.max(...Object.values(dayMap));
+  const mostActiveDay = maxDayCount > 0
+    ? Object.entries(dayMap).find(([, count]) => count === maxDayCount)?.[0] ?? null
+    : null;
+
+  // Calculate average weekly visits
+  const totalCheckIns = checkIns.length;
+  const weeks = days / 7;
+  const avgWeeklyVisits = weeks > 0 ? Math.round((totalCheckIns / weeks) * 10) / 10 : 0;
+
+  // Calculate streak (consecutive days with check-ins)
+  let streakDays = 0;
+  const today = toDateStr(new Date());
+  const sortedDates = [...new Set(checkIns.map((c) => toDateStr(c.checkedInAt)))].sort().reverse();
+
+  if (sortedDates.length > 0) {
+    let currentDate = new Date();
+    for (const dateStr of sortedDates) {
+      const checkDate = toDateStr(currentDate);
+      if (dateStr === checkDate) {
+        streakDays++;
+        currentDate = new Date(currentDate.getTime() - 24 * 60 * 60 * 1000);
+      } else if (dateStr < checkDate) {
+        // Check if they visited yesterday
+        currentDate = new Date(currentDate.getTime() - 24 * 60 * 60 * 1000);
+        if (dateStr === toDateStr(currentDate)) {
+          streakDays++;
+          currentDate = new Date(currentDate.getTime() - 24 * 60 * 60 * 1000);
+        } else {
+          break;
+        }
+      }
+    }
+  }
+
+  // Get last visit
+  const lastCheckIn = await prisma.checkIn.findFirst({
+    where: { memberId },
+    orderBy: { checkedInAt: 'desc' },
+  });
+
+  return {
+    dailyActivity,
+    hourlyDistribution,
+    summary: {
+      totalCheckIns,
+      avgWeeklyVisits,
+      mostActiveHour,
+      mostActiveDay,
+      streakDays,
+      lastVisit: lastCheckIn?.checkedInAt ?? null,
+    },
+  };
+}
+
+export type MemberProfile = {
+  member: Member;
+  subscription: {
+    id: string;
+    status: string;
+    currentPeriodEnd: Date;
+    plan: { id: string; name: string };
+  } | null;
+  tags: Array<{ id: string; name: string; color: string }>;
+  stats: {
+    totalCheckIns: number;
+    checkInsThisMonth: number;
+    totalBookings: number;
+    upcomingBookings: number;
+  };
+  recentActivity: Array<{
+    type: 'check_in' | 'booking' | 'tag_added';
+    timestamp: Date;
+    description: string;
+  }>;
+};
+
+/**
+ * Get full member profile with all related data
+ */
+export async function getMemberProfile(memberId: string): Promise<MemberProfile | null> {
+  const member = await prisma.member.findUnique({
+    where: { id: memberId },
+    include: {
+      subscription: {
+        include: {
+          plan: {
+            select: { id: true, name: true },
+          },
+        },
+      },
+      tags: {
+        include: {
+          tag: {
+            select: { id: true, name: true, color: true },
+          },
+        },
+        orderBy: { appliedAt: 'desc' },
+      },
+    },
+  });
+
+  if (!member) {
+    return null;
+  }
+
+  // Get stats
+  const stats = await getMemberStats(memberId);
+
+  // Get recent activity
+  const [recentCheckIns, recentBookings] = await Promise.all([
+    prisma.checkIn.findMany({
+      where: { memberId },
+      orderBy: { checkedInAt: 'desc' },
+      take: 10,
+    }),
+    prisma.booking.findMany({
+      where: { memberId },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+      include: {
+        session: {
+          include: {
+            class: true,
+          },
+        },
+      },
+    }),
+  ]);
+
+  const recentActivity: MemberProfile['recentActivity'] = [
+    ...recentCheckIns.map((c) => ({
+      type: 'check_in' as const,
+      timestamp: c.checkedInAt,
+      description: `Checked in via ${c.method.toLowerCase().replace('_', ' ')}`,
+    })),
+    ...recentBookings.map((b) => ({
+      type: 'booking' as const,
+      timestamp: b.createdAt,
+      description: `Booked ${b.session.class.name}`,
+    })),
+  ]
+    .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+    .slice(0, 15);
+
+  return {
+    member,
+    subscription: member.subscription,
+    tags: member.tags.map((mt) => mt.tag),
+    stats,
+    recentActivity,
+  };
 }

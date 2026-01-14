@@ -27,7 +27,7 @@ const iconMap: Record<string, React.ReactNode> = {
 
 export function TrendCards({ trends }: TrendCardsProps) {
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+    <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-3 xl:grid-cols-5">
       {trends.map((trend) => {
         const TrendIcon = trend.trend === 'up'
           ? TrendingUp
@@ -50,23 +50,25 @@ export function TrendCards({ trends }: TrendCardsProps) {
         return (
           <Card key={trend.label} className="relative overflow-hidden">
             <div className={`absolute inset-0 ${bgColor} opacity-50`} />
-            <CardHeader className="relative flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardHeader className="relative flex flex-row items-center justify-between space-y-0 p-3 sm:p-4 md:pb-2">
+              <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground truncate pr-2">
                 {trend.label}
               </CardTitle>
-              <div className="text-muted-foreground">
+              <div className="text-muted-foreground flex-shrink-0">
                 {iconMap[trend.label] || <TrendingUp className="h-4 w-4" />}
               </div>
             </CardHeader>
-            <CardContent className="relative">
-              <div className="text-2xl font-bold">{trend.current.toLocaleString()}</div>
-              <div className={`flex items-center gap-1 text-xs ${trendColor}`}>
-                <TrendIcon className="h-3 w-3" />
-                <span>
+            <CardContent className="relative p-3 sm:p-4 pt-0 sm:pt-0">
+              <div className="text-lg sm:text-xl md:text-2xl font-bold">{trend.current.toLocaleString()}</div>
+              <div className={`flex items-center gap-1 text-[10px] sm:text-xs ${trendColor} flex-wrap`}>
+                <TrendIcon className="h-3 w-3 flex-shrink-0" />
+                <span className="whitespace-nowrap">
                   {trend.change >= 0 ? '+' : ''}{trend.change.toLocaleString()}
-                  {trend.changePercent !== 0 && ` (${trend.changePercent >= 0 ? '+' : ''}${trend.changePercent}%)`}
+                  {trend.changePercent !== 0 && (
+                    <span className="hidden sm:inline"> ({trend.changePercent >= 0 ? '+' : ''}{trend.changePercent}%)</span>
+                  )}
                 </span>
-                <span className="text-muted-foreground ml-1">vs last month</span>
+                <span className="text-muted-foreground hidden md:inline">vs last month</span>
               </div>
             </CardContent>
           </Card>

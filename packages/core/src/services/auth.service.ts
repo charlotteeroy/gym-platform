@@ -1,8 +1,9 @@
 import bcrypt from 'bcryptjs';
-import { prisma, type User, type Session } from '@gym/database';
+import { prisma, type User, type Session, type Member } from '@gym/database';
 import {
   type LoginInput,
   type RegisterInput,
+  type MemberRegisterInput,
   generateToken,
   ERROR_CODES,
   type ApiError,
@@ -14,6 +15,10 @@ const SESSION_DURATION_DAYS = 30;
 
 export type AuthResult =
   | { success: true; user: User; session: Session }
+  | { success: false; error: ApiError };
+
+export type MemberAuthResult =
+  | { success: true; user: User; member: Member; session: Session }
   | { success: false; error: ApiError };
 
 export type TokenValidationResult =
@@ -306,4 +311,96 @@ export async function changePassword(
   });
 
   return { success: true };
+}
+
+/**
+ * Register a new member (creates User + Member in one flow)
+ * Used for member self-registration through the Member app
+ */
+export async function registerMember(input: MemberRegisterInput): Promise<MemberAuthResult> {
+  // Find the gym (use first gym in system)
+  const gym = await prisma.gym.findFirst();
+
+  if (!gym) {
+    return {
+      success: false,
+      error: {
+        code: ERROR_CODES.NOT_FOUND,
+        message: 'No gym found in the system.',
+      },
+    };
+  }
+
+  // Check if user already exists
+  const existingUser = await prisma.user.findUnique({
+    where: { email: input.email },
+  });
+
+  if (existingUser) {
+    // Check if they're already a member of this gym
+    const existingMember = await prisma.member.findUnique({
+      where: {
+        gymId_email: {
+          gymId: gym.id,
+          email: input.email,
+        },
+      },
+    });
+
+    if (existingMember) {
+      return {
+        success: false,
+        error: {
+          code: ERROR_CODES.ALREADY_EXISTS,
+          message: 'You are already a member. Please sign in instead.',
+        },
+      };
+    }
+
+    return {
+      success: false,
+      error: {
+        code: ERROR_CODES.ALREADY_EXISTS,
+        message: 'An account with this email already exists. Please sign in.',
+      },
+    };
+  }
+
+  // Hash password
+  const passwordHash = await hashPassword(input.password);
+
+  // Create user and member in a transaction
+  const result = await prisma.$transaction(async (tx) => {
+    // Create user
+    const user = await tx.user.create({
+      data: {
+        email: input.email,
+        passwordHash,
+      },
+    });
+
+    // Create member
+    const member = await tx.member.create({
+      data: {
+        firstName: input.firstName,
+        lastName: input.lastName,
+        email: input.email,
+        phone: input.phone,
+        userId: user.id,
+        gymId: gym.id,
+      },
+    });
+
+    return { user, member };
+  });
+
+  // Create session
+  const session = await createAuthSession(result.user.id);
+
+  return {
+    success: true,
+    user: result.user,
+    member: result.member,
+    session,
+  };
 }

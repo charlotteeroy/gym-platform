@@ -138,13 +138,20 @@ export default async function PortalHomePage() {
   const monthlyGoal = 12; // Target classes per month
   const progressPercent = Math.min((classesThisMonth / monthlyGoal) * 100, 100);
 
+  // Check if member is new (created within last 5 minutes)
+  const isNewMember = Date.now() - new Date(member.createdAt).getTime() < 5 * 60 * 1000;
+  const greeting = isNewMember ? 'Welcome' : 'Welcome back';
+
   return (
     <div className="space-y-8">
       {/* Welcome Section */}
       <div>
-        <h1 className="text-3xl font-bold">Welcome back, {member.firstName}!</h1>
+        <h1 className="text-3xl font-bold">{greeting}, {member.firstName}!</h1>
         <p className="text-muted-foreground mt-1">
-          Here&apos;s your fitness progress at {member.gym.name}
+          {isNewMember
+            ? `You're all set up at ${member.gym.name}. Start by booking a class!`
+            : `Here's your fitness progress at ${member.gym.name}`
+          }
         </p>
       </div>
 

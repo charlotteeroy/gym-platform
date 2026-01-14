@@ -136,17 +136,17 @@ export default async function SubscriptionsPage() {
     <>
       <Header title="Subscriptions" description="Manage memberships and billing" />
 
-      <div className="p-6 space-y-6">
+      <div className="p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6">
         {/* Stats Cards */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Monthly Revenue</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 sm:p-4 pb-2">
+              <CardTitle className="text-xs sm:text-sm font-medium">Monthly Revenue</CardTitle>
+              <DollarSign className="h-4 w-4 text-muted-foreground hidden sm:block" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{formatCurrency(stats.mrr)}</div>
-              <div className="flex items-center text-xs text-muted-foreground">
+            <CardContent className="p-3 sm:p-4 pt-0">
+              <div className="text-lg sm:text-xl md:text-2xl font-bold">{formatCurrency(stats.mrr)}</div>
+              <div className="flex items-center text-[10px] sm:text-xs text-muted-foreground">
                 {stats.mrrChange >= 0 ? (
                   <TrendingUp className="mr-1 h-3 w-3 text-green-500" />
                 ) : (
@@ -156,85 +156,85 @@ export default async function SubscriptionsPage() {
                   {stats.mrrChange >= 0 ? '+' : ''}
                   {formatCurrency(stats.mrrChange)}
                 </span>
-                <span className="ml-1">vs last month</span>
+                <span className="ml-1 hidden sm:inline">vs last month</span>
               </div>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Subscriptions</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 sm:p-4 pb-2">
+              <CardTitle className="text-xs sm:text-sm font-medium">Active</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground hidden sm:block" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.active}</div>
-              <p className="text-xs text-muted-foreground">
+            <CardContent className="p-3 sm:p-4 pt-0">
+              <div className="text-lg sm:text-xl md:text-2xl font-bold">{stats.active}</div>
+              <p className="text-[10px] sm:text-xs text-muted-foreground">
                 {stats.paused > 0 && `${stats.paused} paused`}
               </p>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Set to Cancel</CardTitle>
-              <AlertTriangle className="h-4 w-4 text-amber-500" />
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 sm:p-4 pb-2">
+              <CardTitle className="text-xs sm:text-sm font-medium">Set to Cancel</CardTitle>
+              <AlertTriangle className="h-4 w-4 text-amber-500 hidden sm:block" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-amber-600">{stats.setToCancel}</div>
-              <p className="text-xs text-muted-foreground">Won't renew at period end</p>
+            <CardContent className="p-3 sm:p-4 pt-0">
+              <div className="text-lg sm:text-xl md:text-2xl font-bold text-amber-600">{stats.setToCancel}</div>
+              <p className="text-[10px] sm:text-xs text-muted-foreground">Won't renew</p>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Cancelled (30d)</CardTitle>
-              <XCircle className="h-4 w-4 text-red-500" />
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 sm:p-4 pb-2">
+              <CardTitle className="text-xs sm:text-sm font-medium">Cancelled (30d)</CardTitle>
+              <XCircle className="h-4 w-4 text-red-500 hidden sm:block" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-600">{stats.cancelledThisMonth}</div>
-              <p className="text-xs text-muted-foreground">Cancellations this month</p>
+            <CardContent className="p-3 sm:p-4 pt-0">
+              <div className="text-lg sm:text-xl md:text-2xl font-bold text-red-600">{stats.cancelledThisMonth}</div>
+              <p className="text-[10px] sm:text-xs text-muted-foreground">This month</p>
             </CardContent>
           </Card>
         </div>
 
         {/* Membership Plans */}
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-3 sm:px-6 py-3 sm:py-6">
             <div>
-              <CardTitle>Membership Plans</CardTitle>
-              <CardDescription>Your available subscription tiers</CardDescription>
+              <CardTitle className="text-base sm:text-lg">Membership Plans</CardTitle>
+              <CardDescription className="text-xs sm:text-sm">Your available subscription tiers</CardDescription>
             </div>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" className="self-start sm:self-auto">
               <Plus className="mr-2 h-4 w-4" />
               Add Plan
             </Button>
           </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 md:grid-cols-3">
+          <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+            <div className="grid gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {plans.map((plan) => (
                 <div
                   key={plan.id}
-                  className="rounded-lg border p-4 hover:border-primary transition-colors"
+                  className="rounded-lg border p-3 sm:p-4 hover:border-primary transition-colors"
                 >
-                  <div className="flex items-start justify-between mb-2">
-                    <div>
-                      <h3 className="font-semibold">{plan.name}</h3>
-                      <p className="text-sm text-muted-foreground">{plan.description}</p>
+                  <div className="flex items-start justify-between mb-2 gap-2">
+                    <div className="min-w-0">
+                      <h3 className="font-semibold text-sm sm:text-base truncate">{plan.name}</h3>
+                      <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">{plan.description}</p>
                     </div>
-                    <Badge variant="secondary">{plan._count.subscriptions} active</Badge>
+                    <Badge variant="secondary" className="text-[10px] sm:text-xs flex-shrink-0">{plan._count.subscriptions} active</Badge>
                   </div>
-                  <div className="mt-3">
-                    <span className="text-2xl font-bold">${Number(plan.priceAmount).toFixed(2)}</span>
-                    <span className="text-muted-foreground">
+                  <div className="mt-2 sm:mt-3">
+                    <span className="text-xl sm:text-2xl font-bold">${Number(plan.priceAmount).toFixed(2)}</span>
+                    <span className="text-xs sm:text-sm text-muted-foreground">
                       /{plan.billingInterval === 'YEARLY' ? 'year' : 'month'}
                     </span>
                   </div>
                   {plan.features && (
-                    <ul className="mt-3 space-y-1">
+                    <ul className="mt-2 sm:mt-3 space-y-1">
                       {(plan.features as string[]).slice(0, 3).map((feature, i) => (
-                        <li key={i} className="text-xs text-muted-foreground flex items-center">
-                          <span className="w-1 h-1 rounded-full bg-primary mr-2" />
-                          {feature}
+                        <li key={i} className="text-[10px] sm:text-xs text-muted-foreground flex items-center">
+                          <span className="w-1 h-1 rounded-full bg-primary mr-2 flex-shrink-0" />
+                          <span className="truncate">{feature}</span>
                         </li>
                       ))}
                     </ul>
@@ -247,14 +247,43 @@ export default async function SubscriptionsPage() {
 
         {/* All Subscriptions */}
         <Card>
-          <CardHeader>
-            <CardTitle>All Subscriptions</CardTitle>
-            <CardDescription>
+          <CardHeader className="px-3 sm:px-6 py-3 sm:py-6">
+            <CardTitle className="text-base sm:text-lg">All Subscriptions</CardTitle>
+            <CardDescription className="text-xs sm:text-sm">
               {subscriptions.length} total subscriptions
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="relative overflow-x-auto">
+          <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
+            {/* Mobile Card View */}
+            <div className="md:hidden space-y-3">
+              {subscriptions.map((subscription) => (
+                <Link
+                  key={subscription.id}
+                  href={`/members/${subscription.member.id}`}
+                  className="flex items-center gap-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <p className="font-medium text-sm truncate">
+                        {subscription.member.firstName} {subscription.member.lastName}
+                      </p>
+                      <StatusBadge
+                        status={subscription.status}
+                        cancelAtPeriodEnd={subscription.cancelAtPeriodEnd}
+                      />
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+                      <Badge variant="outline" className="text-[10px]">{subscription.plan.name}</Badge>
+                      <span>${Number(subscription.plan.priceAmount).toFixed(0)}/{subscription.plan.billingInterval === 'YEARLY' ? 'yr' : 'mo'}</span>
+                    </div>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                </Link>
+              ))}
+            </div>
+
+            {/* Desktop Table View */}
+            <div className="hidden md:block relative overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="text-left text-muted-foreground border-b">
                   <tr>
@@ -327,8 +356,8 @@ function StatusBadge({
 }) {
   if (status === 'ACTIVE' && cancelAtPeriodEnd) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium bg-amber-100 text-amber-700">
-        <AlertTriangle className="h-3 w-3" />
+      <span className="inline-flex items-center gap-1 rounded-full px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-xs font-medium bg-amber-100 text-amber-700">
+        <AlertTriangle className="h-3 w-3 hidden sm:block" />
         Cancelling
       </span>
     );
@@ -336,7 +365,7 @@ function StatusBadge({
 
   if (status === 'ACTIVE') {
     return (
-      <span className="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium bg-green-100 text-green-700">
+      <span className="inline-flex items-center rounded-full px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-xs font-medium bg-green-100 text-green-700">
         Active
       </span>
     );
@@ -344,8 +373,8 @@ function StatusBadge({
 
   if (status === 'PAUSED') {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-700">
-        <Pause className="h-3 w-3" />
+      <span className="inline-flex items-center gap-1 rounded-full px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-xs font-medium bg-yellow-100 text-yellow-700">
+        <Pause className="h-3 w-3 hidden sm:block" />
         Paused
       </span>
     );
@@ -353,15 +382,15 @@ function StatusBadge({
 
   if (status === 'CANCELLED') {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium bg-red-100 text-red-700">
-        <XCircle className="h-3 w-3" />
+      <span className="inline-flex items-center gap-1 rounded-full px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-xs font-medium bg-red-100 text-red-700">
+        <XCircle className="h-3 w-3 hidden sm:block" />
         Cancelled
       </span>
     );
   }
 
   return (
-    <span className="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium bg-gray-100 text-gray-700">
+    <span className="inline-flex items-center rounded-full px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-xs font-medium bg-gray-100 text-gray-700">
       {status}
     </span>
   );

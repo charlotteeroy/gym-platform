@@ -21,16 +21,23 @@ export const createMemberSchema = z.object({
 
 export const updateMemberSchema = createMemberSchema.partial();
 
+export const activityLevelSchema = z.enum(['high', 'medium', 'low', 'inactive', 'declining']);
+
 export const memberFilterSchema = z.object({
   status: memberStatusSchema.optional(),
   search: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+  activityLevel: activityLevelSchema.optional(),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
-  sortBy: z.enum(['firstName', 'lastName', 'email', 'joinedAt', 'status']).default('joinedAt'),
+  sortBy: z
+    .enum(['firstName', 'lastName', 'email', 'joinedAt', 'status', 'visitCount', 'lastActivity'])
+    .default('joinedAt'),
   sortOrder: z.enum(['asc', 'desc']).default('desc'),
 });
 
 export type MemberStatus = z.infer<typeof memberStatusSchema>;
+export type ActivityLevel = z.infer<typeof activityLevelSchema>;
 export type EmergencyContact = z.infer<typeof emergencyContactSchema>;
 export type CreateMemberInput = z.infer<typeof createMemberSchema>;
 export type UpdateMemberInput = z.infer<typeof updateMemberSchema>;

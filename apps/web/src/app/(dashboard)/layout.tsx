@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth';
-import { Sidebar } from '@/components/layout/sidebar';
+import { Sidebar, MobileHeaderSpacer } from '@/components/layout/sidebar';
 
 export default async function DashboardLayout({
   children,
@@ -14,9 +14,12 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="flex h-screen">
+    <div className="flex min-h-screen flex-col md:flex-row bg-slate-50">
       <Sidebar />
-      <main className="flex-1 overflow-auto bg-muted/30">{children}</main>
+      <main className="flex-1 overflow-auto">
+        <MobileHeaderSpacer />
+        {children}
+      </main>
     </div>
   );
 }

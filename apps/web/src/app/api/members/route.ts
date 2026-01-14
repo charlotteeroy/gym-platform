@@ -1,6 +1,6 @@
 import { createMember, listMembers } from '@gym/core';
 import { createMemberSchema, memberFilterSchema } from '@gym/shared';
-import { getSession, getCurrentStaff } from '@/lib/auth';
+import { getSession, getCurrentStaff, getStaffWithGym } from '@/lib/auth';
 import { apiSuccess, apiError, apiValidationError, apiUnauthorized, apiForbidden } from '@/lib/api';
 
 // GET /api/members - List members
@@ -11,24 +11,32 @@ export async function GET(request: Request) {
       return apiUnauthorized();
     }
 
-    // Get gym ID from query params or header
+    // Get gym ID from query params or auto-detect from staff
     const { searchParams } = new URL(request.url);
-    const gymId = searchParams.get('gymId');
+    let gymId = searchParams.get('gymId');
 
+    // Auto-detect gym from staff if not provided
     if (!gymId) {
-      return apiError({ code: 'INVALID_INPUT', message: 'Gym ID is required' }, 400);
-    }
-
-    // Verify staff access
-    const staff = await getCurrentStaff(gymId);
-    if (!staff) {
-      return apiForbidden('You do not have access to this gym');
+      const staff = await getStaffWithGym();
+      if (!staff) {
+        return apiForbidden('You do not have access to any gym');
+      }
+      gymId = staff.gymId;
+    } else {
+      // Verify staff access to specified gym
+      const staff = await getCurrentStaff(gymId);
+      if (!staff) {
+        return apiForbidden('You do not have access to this gym');
+      }
     }
 
     // Parse filters
+    const tagsParam = searchParams.get('tags');
     const filters = memberFilterSchema.parse({
       status: searchParams.get('status') || undefined,
       search: searchParams.get('search') || undefined,
+      tags: tagsParam ? tagsParam.split(',').filter(Boolean) : undefined,
+      activityLevel: searchParams.get('activityLevel') || undefined,
       page: searchParams.get('page') || 1,
       limit: searchParams.get('limit') || 20,
       sortBy: searchParams.get('sortBy') || 'joinedAt',
@@ -53,16 +61,22 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { gymId, ...memberData } = body;
+    const { gymId: providedGymId, ...memberData } = body;
 
+    // Auto-detect gym from staff if not provided
+    let gymId = providedGymId;
     if (!gymId) {
-      return apiError({ code: 'INVALID_INPUT', message: 'Gym ID is required' }, 400);
-    }
-
-    // Verify staff access
-    const staff = await getCurrentStaff(gymId);
-    if (!staff) {
-      return apiForbidden('You do not have access to this gym');
+      const staff = await getStaffWithGym();
+      if (!staff) {
+        return apiForbidden('You do not have access to any gym');
+      }
+      gymId = staff.gymId;
+    } else {
+      // Verify staff access to specified gym
+      const staff = await getCurrentStaff(gymId);
+      if (!staff) {
+        return apiForbidden('You do not have access to this gym');
+      }
     }
 
     // Validate input

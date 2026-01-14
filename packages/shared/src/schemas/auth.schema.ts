@@ -36,8 +36,18 @@ export const changePasswordSchema = z.object({
   newPassword: passwordSchema,
 });
 
+// Member registration schema
+export const memberRegisterSchema = z.object({
+  email: emailSchema,
+  password: passwordSchema,
+  firstName: z.string().min(1, 'First name is required').max(50).trim(),
+  lastName: z.string().min(1, 'Last name is required').max(50).trim(),
+  phone: z.string().max(20).optional(),
+});
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
+export type MemberRegisterInput = z.infer<typeof memberRegisterSchema>;
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;

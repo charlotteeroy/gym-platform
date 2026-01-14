@@ -46,8 +46,8 @@ export default function MemberLoginPage() {
         description: 'Redirecting to your portal...',
       });
 
-      router.push('/portal');
-      router.refresh();
+      // Use hard navigation to ensure cookie is sent
+      window.location.href = '/portal';
     } catch (error) {
       toast({
         title: 'Login failed',
@@ -101,7 +101,13 @@ export default function MemberLoginPage() {
             </Button>
           </form>
 
-          <div className="mt-6 text-center text-sm">
+          <div className="mt-6 text-center text-sm space-y-2">
+            <p className="text-muted-foreground">
+              Don't have an account?{' '}
+              <Link href="/member-signup" className="text-primary hover:underline">
+                Sign up
+              </Link>
+            </p>
             <p className="text-muted-foreground">
               Are you a gym owner?{' '}
               <Link href="/login" className="text-primary hover:underline">

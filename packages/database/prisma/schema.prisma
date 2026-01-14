@@ -34,6 +34,10 @@ model Gym {
   classes         Class[]
   classSessions   ClassSession[]
   checkIns        CheckIn[]
+  tags            Tag[]
+  payments        Payment[]
+  invoices        Invoice[]
+  expenses        Expense[]
 
   @@index([slug])
 }
@@ -119,6 +123,9 @@ model Member {
   bookings        Booking[]
   checkIns        CheckIn[]
   waitlistEntries WaitlistEntry[]
+  tags            MemberTag[]
+  payments        Payment[]
+  invoices        Invoice[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -162,6 +169,7 @@ model Staff {
   gym    Gym    @relation(fields: [gymId], references: [id], onDelete: Cascade)
 
   instructorClasses Class[] @relation("ClassInstructor")
+  expenses          Expense[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -443,4 +451,169 @@ enum CheckInMethod {
   QR_CODE
   MANUAL
   CARD_SCAN
+}
+
+// ============================================
+// PAYMENTS & ACCOUNTING
+// ============================================
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CARD
+  CASH
+  BANK_TRANSFER
+  OTHER
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum ExpenseCategory {
+  RENT
+  UTILITIES
+  EQUIPMENT
+  MAINTENANCE
+  MARKETING
+  PAYROLL
+  SUPPLIES
+  INSURANCE
+  OTHER
+}
+
+model Payment {
+  id              String        @id @default(cuid())
+  amount          Decimal       @db.Decimal(10, 2)
+  status          PaymentStatus @default(PENDING)
+  method          PaymentMethod
+  description     String?
+  stripePaymentId String?
+
+  // Relations
+  memberId  String?
+  member    Member?  @relation(fields: [memberId], references: [id])
+  invoiceId String?
+  invoice   Invoice? @relation(fields: [invoiceId], references: [id])
+  gymId     String
+  gym       Gym      @relation(fields: [gymId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([gymId])
+  @@index([memberId])
+  @@index([status])
+}
+
+model Invoice {
+  id            String        @id @default(cuid())
+  invoiceNumber String
+  status        InvoiceStatus @default(DRAFT)
+  dueDate       DateTime
+  subtotal      Decimal       @db.Decimal(10, 2)
+  tax           Decimal       @db.Decimal(10, 2) @default(0)
+  total         Decimal       @db.Decimal(10, 2)
+  notes         String?
+
+  // Relations
+  memberId String
+  member   Member        @relation(fields: [memberId], references: [id])
+  items    InvoiceItem[]
+  payments Payment[]
+  gymId    String
+  gym      Gym           @relation(fields: [gymId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([gymId, invoiceNumber])
+  @@index([gymId])
+  @@index([memberId])
+  @@index([status])
+}
+
+model InvoiceItem {
+  id          String  @id @default(cuid())
+  description String
+  quantity    Int     @default(1)
+  unitPrice   Decimal @db.Decimal(10, 2)
+  total       Decimal @db.Decimal(10, 2)
+
+  // Relations
+  invoiceId String
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+}
+
+model Expense {
+  id          String          @id @default(cuid())
+  amount      Decimal         @db.Decimal(10, 2)
+  category    ExpenseCategory
+  description String
+  vendor      String?
+  date        DateTime
+  receiptUrl  String?
+
+  // Relations
+  staffId String?
+  staff   Staff?  @relation(fields: [staffId], references: [id])
+  gymId   String
+  gym     Gym     @relation(fields: [gymId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([gymId])
+  @@index([category])
+  @@index([date])
+}
+
+// ============================================
+// TAGS & SEGMENTATION
+// ============================================
+
+model Tag {
+  id          String   @id @default(cuid())
+  name        String
+  color       String   @default("#6366f1")
+  description String?
+  isSystem    Boolean  @default(false)
+
+  // Relations
+  gymId   String
+  gym     Gym         @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  members MemberTag[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([gymId, name])
+  @@index([gymId])
+}
+
+model MemberTag {
+  id        String   @id @default(cuid())
+  appliedAt DateTime @default(now())
+  appliedBy String?
+
+  // Relations
+  memberId String
+  member   Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  tagId    String
+  tag      Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, tagId])
+  @@index([memberId])
+  @@index([tagId])
 }

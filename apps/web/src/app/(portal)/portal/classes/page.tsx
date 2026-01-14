@@ -1,7 +1,7 @@
 import { getSession } from '@/lib/auth';
 import { prisma } from '@gym/database';
 import { redirect } from 'next/navigation';
-import { ClassCalendar } from './class-calendar';
+import { ClassCalendar } from '@/components/classes';
 
 async function getClassesData() {
   const session = await getSession();

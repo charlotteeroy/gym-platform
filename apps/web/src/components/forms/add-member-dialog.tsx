@@ -20,9 +20,10 @@ import { useToast } from '@/hooks/use-toast';
 interface AddMemberDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onMemberAdded?: () => void;
 }
 
-export function AddMemberDialog({ open, onOpenChange }: AddMemberDialogProps) {
+export function AddMemberDialog({ open, onOpenChange, onMemberAdded }: AddMemberDialogProps) {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
 
@@ -63,6 +64,7 @@ export function AddMemberDialog({ open, onOpenChange }: AddMemberDialogProps) {
 
       reset();
       onOpenChange(false);
+      onMemberAdded?.();
     } catch {
       toast({
         variant: 'destructive',

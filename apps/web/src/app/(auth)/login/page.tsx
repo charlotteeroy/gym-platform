@@ -65,52 +65,54 @@ export default function LoginPage() {
   }
 
   return (
-    <Card>
-      <CardHeader className="space-y-1">
-        <CardTitle className="text-2xl font-bold">Sign in</CardTitle>
-        <CardDescription>
+    <Card className="w-full">
+      <CardHeader className="space-y-1 px-4 sm:px-6 pt-4 sm:pt-6">
+        <CardTitle className="text-xl sm:text-2xl font-bold">Sign in</CardTitle>
+        <CardDescription className="text-xs sm:text-sm">
           Enter your email and password to access your account
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit(onSubmit)}>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 px-4 sm:px-6">
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email" className="text-sm">Email</Label>
             <Input
               id="email"
               type="email"
               placeholder="you@example.com"
               {...register('email')}
               disabled={isLoading}
+              className="h-10 sm:h-11"
             />
             {errors.email && (
-              <p className="text-sm text-destructive">{errors.email.message}</p>
+              <p className="text-xs sm:text-sm text-destructive">{errors.email.message}</p>
             )}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password" className="text-sm">Password</Label>
             <Input
               id="password"
               type="password"
               {...register('password')}
               disabled={isLoading}
+              className="h-10 sm:h-11"
             />
             {errors.password && (
-              <p className="text-sm text-destructive">{errors.password.message}</p>
+              <p className="text-xs sm:text-sm text-destructive">{errors.password.message}</p>
             )}
           </div>
         </CardContent>
-        <CardFooter className="flex flex-col space-y-4">
-          <Button type="submit" className="w-full" disabled={isLoading}>
+        <CardFooter className="flex flex-col space-y-3 sm:space-y-4 px-4 sm:px-6 pb-4 sm:pb-6">
+          <Button type="submit" className="w-full min-h-[44px]" disabled={isLoading}>
             {isLoading ? 'Signing in...' : 'Sign in'}
           </Button>
-          <p className="text-sm text-muted-foreground text-center">
+          <p className="text-xs sm:text-sm text-muted-foreground text-center">
             Don&apos;t have an account?{' '}
             <Link href="/register" className="text-primary hover:underline">
               Sign up
             </Link>
           </p>
-          <p className="text-sm text-muted-foreground text-center">
+          <p className="text-xs sm:text-sm text-muted-foreground text-center">
             Are you a gym member?{' '}
             <Link href="/member-login" className="text-primary hover:underline">
               Member login
