@@ -38,6 +38,8 @@ model Gym {
   payments        Payment[]
   invoices        Invoice[]
   expenses        Expense[]
+  automatedFlows  AutomatedFlow[]
+  campaigns       Campaign[]
 
   @@index([slug])
 }
@@ -616,4 +618,128 @@ model MemberTag {
   @@unique([memberId, tagId])
   @@index([memberId])
   @@index([tagId])
+}
+
+// ============================================
+// AUTOMATED FLOWS
+// ============================================
+
+enum FlowTriggerType {
+  NO_CHECKIN          // Member hasn't checked in for X days
+  MEMBERSHIP_EXPIRING // Membership expiring in X days
+  NEW_SIGNUP          // New member signed up
+  BIRTHDAY            // Member's birthday
+  CUSTOM              // Custom trigger
+}
+
+enum FlowActionType {
+  SEND_EMAIL
+  SEND_SMS
+  WAIT
+  ADD_TAG
+  REMOVE_TAG
+}
+
+enum FlowChannel {
+  EMAIL
+  SMS
+  PUSH
+}
+
+model AutomatedFlow {
+  id          String            @id @default(cuid())
+  name        String
+  description String?
+  triggerType FlowTriggerType
+  triggerValue Int?             // e.g., 14 for "14 days"
+  isActive    Boolean           @default(false)
+  isTemplate  Boolean           @default(false)
+
+  // Relations
+  gymId   String
+  gym     Gym          @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  steps   FlowStep[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([gymId])
+  @@index([isActive])
+}
+
+model FlowStep {
+  id          String         @id @default(cuid())
+  order       Int            // Step order in the flow
+  actionType  FlowActionType
+  channel     FlowChannel?   // For SEND_EMAIL, SEND_SMS
+  subject     String?        // Email subject
+  content     String?        // Email/SMS content
+  waitDays    Int?           // For WAIT action
+  tagId       String?        // For ADD_TAG, REMOVE_TAG
+
+  // Relations
+  flowId String
+  flow   AutomatedFlow @relation(fields: [flowId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([flowId])
+}
+
+// ============================================
+// CAMPAIGNS
+// ============================================
+
+enum CampaignType {
+  EMAIL
+  SMS
+}
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  SENDING
+  SENT
+  PAUSED
+  CANCELLED
+}
+
+model Campaign {
+  id          String         @id @default(cuid())
+  name        String
+  type        CampaignType
+  status      CampaignStatus @default(DRAFT)
+
+  // Content
+  subject     String?        // For email campaigns
+  content     String         @db.Text
+
+  // Targeting
+  targetAudience String      @default("all") // "all", "active", "inactive", "tag:tagId"
+  targetTagId    String?     // If targeting a specific tag
+
+  // Scheduling
+  scheduledAt DateTime?
+  sentAt      DateTime?
+
+  // Stats
+  recipientCount Int         @default(0)
+  sentCount      Int         @default(0)
+  deliveredCount Int         @default(0)
+  openedCount    Int         @default(0)
+  clickedCount   Int         @default(0)
+  bouncedCount   Int         @default(0)
+
+  // Relations
+  gymId   String
+  gym     Gym    @relation(fields: [gymId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([gymId])
+  @@index([type])
+  @@index([status])
+  @@index([createdAt])
 }
