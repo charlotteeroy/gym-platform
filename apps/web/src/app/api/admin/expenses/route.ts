@@ -35,12 +35,17 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const category = searchParams.get('category');
+    const categories = searchParams.get('categories'); // Comma-separated list
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
 
     const where: Record<string, unknown> = { gymId: staff.gymId };
 
-    if (category) {
+    if (categories) {
+      // Support comma-separated list of categories
+      const categoryList = categories.split(',').map(c => c.trim());
+      where.category = { in: categoryList };
+    } else if (category) {
       where.category = category;
     }
 
