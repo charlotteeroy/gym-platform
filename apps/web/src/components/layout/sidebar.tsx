@@ -22,6 +22,9 @@ import {
   Building2,
   UserCog,
   Receipt,
+  Wallet,
+  FileText,
+  DollarSign,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -52,8 +55,19 @@ const navigation: NavigationItem[] = [
     icon: Briefcase,
     children: [
       { name: 'Members', href: '/members', icon: Users },
+      { name: 'Subscriptions', href: '/subscriptions', icon: CreditCard },
       { name: 'Campaigns', href: '/campaigns', icon: Megaphone },
       { name: 'Opportunities', href: '/opportunities', icon: TrendingUp },
+    ],
+  },
+  {
+    name: 'Billing',
+    icon: DollarSign,
+    children: [
+      { name: 'Overview', href: '/admin/billing', icon: TrendingUp },
+      { name: 'Payments', href: '/admin/billing/payments', icon: CreditCard },
+      { name: 'Invoices', href: '/admin/billing/invoices', icon: FileText },
+      { name: 'Payouts', href: '/admin/billing/payouts', icon: Wallet },
     ],
   },
   {
@@ -62,10 +76,9 @@ const navigation: NavigationItem[] = [
     children: [
       { name: 'Gym Profile', href: '/admin/gym', icon: Building2 },
       { name: 'Staff', href: '/admin/staff', icon: UserCog },
-      { name: 'Accounting', href: '/admin/accounting', icon: Receipt },
+      { name: 'Expenses', href: '/admin/accounting', icon: Receipt },
     ],
   },
-  { name: 'Subscriptions', href: '/subscriptions', icon: CreditCard },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
 
@@ -128,7 +141,13 @@ export function Sidebar() {
   }
 
   const NavLink = ({ item, nested = false }: { item: NavItem; nested?: boolean }) => {
-    const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href + '/'));
+    // For nested items or specific paths, only match exact path
+    // This prevents /admin/billing from matching /admin/billing/payments
+    const isActive = pathname === item.href ||
+      (item.href !== '/dashboard' &&
+       item.href !== '/admin/billing' &&
+       pathname.startsWith(item.href + '/'));
+    const Icon = item.icon;
     return (
       <Link
         href={item.href}
@@ -141,7 +160,7 @@ export function Sidebar() {
         )}
         onClick={() => setMobileOpen(false)}
       >
-        <item.icon className={cn('h-5 w-5 flex-shrink-0', isActive ? 'text-white' : 'text-slate-400')} />
+        <Icon className={cn('h-5 w-5 flex-shrink-0', isActive ? 'text-white' : 'text-slate-400')} />
         <span>{item.name}</span>
       </Link>
     );
@@ -152,6 +171,7 @@ export function Sidebar() {
     const isAnyChildActive = section.children.some(
       (child) => pathname === child.href || pathname.startsWith(child.href + '/')
     );
+    const Icon = section.icon;
 
     return (
       <div>
@@ -165,7 +185,7 @@ export function Sidebar() {
           )}
         >
           <div className="flex items-center gap-3">
-            <section.icon className={cn('h-5 w-5 flex-shrink-0', isAnyChildActive ? 'text-slate-900' : 'text-slate-400')} />
+            <Icon className={cn('h-5 w-5 flex-shrink-0', isAnyChildActive ? 'text-slate-900' : 'text-slate-400')} />
             <span>{section.name}</span>
           </div>
           {isExpanded ? (
@@ -194,7 +214,7 @@ export function Sidebar() {
         <span className="font-bold text-lg text-slate-900 tracking-tight">GymFlow</span>
       </div>
 
-      <nav className="flex-1 space-y-1 p-4">
+      <nav className="flex-1 space-y-1 p-4 overflow-y-auto">
         {navigation.map((item) =>
           isNavSection(item) ? (
             <NavSectionComponent key={item.name} section={item} />
@@ -219,7 +239,7 @@ export function Sidebar() {
 
   return (
     <>
-      {/* Mobile Header Bar */}
+      {/* Mobile Header Bar - hidden on md+ */}
       <div className="md:hidden fixed top-0 left-0 right-0 z-40 flex h-14 items-center justify-between border-b border-slate-200/60 bg-white/80 backdrop-blur-sm px-4">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center">
@@ -238,7 +258,7 @@ export function Sidebar() {
         </Button>
       </div>
 
-      {/* Mobile Overlay */}
+      {/* Mobile Overlay - hidden on md+ */}
       {mobileOpen && (
         <div
           className="md:hidden fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
@@ -247,7 +267,7 @@ export function Sidebar() {
         />
       )}
 
-      {/* Mobile Sidebar Drawer */}
+      {/* Mobile Sidebar Drawer - hidden on md+ */}
       <div
         className={cn(
           'md:hidden fixed top-14 left-0 bottom-0 z-50 w-72 bg-white border-r border-slate-200/60 transform transition-transform duration-200 ease-in-out',
@@ -259,7 +279,7 @@ export function Sidebar() {
         </div>
       </div>
 
-      {/* Desktop Sidebar */}
+      {/* Desktop Sidebar - visible only on md+ */}
       <div className="hidden md:flex h-full w-64 flex-col border-r border-slate-200/60 bg-white">
         <SidebarContent />
       </div>

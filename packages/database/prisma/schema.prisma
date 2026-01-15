@@ -38,6 +38,7 @@ model Gym {
   payments        Payment[]
   invoices        Invoice[]
   expenses        Expense[]
+  payouts         Payout[]
   automatedFlows  AutomatedFlow[]
   campaigns       Campaign[]
 
@@ -579,6 +580,43 @@ model Expense {
   @@index([gymId])
   @@index([category])
   @@index([date])
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+  CANCELLED
+}
+
+model Payout {
+  id              String       @id @default(cuid())
+  amount          Decimal      @db.Decimal(10, 2)
+  status          PayoutStatus @default(PENDING)
+  description     String?
+  stripePayoutId  String?
+  stripeAccountId String?      // Connected account ID for instructor payouts
+
+  // Recipient info
+  recipientType   String       @default("gym") // "gym", "instructor"
+  recipientId     String?      // Staff ID if instructor payout
+
+  // Timing
+  scheduledAt     DateTime?
+  processedAt     DateTime?
+
+  // Relations
+  gymId   String
+  gym     Gym    @relation(fields: [gymId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([gymId])
+  @@index([status])
+  @@index([recipientType])
+  @@index([processedAt])
 }
 
 // ============================================
