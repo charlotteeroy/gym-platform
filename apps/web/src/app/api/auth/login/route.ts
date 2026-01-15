@@ -41,7 +41,7 @@ export async function POST(request: Request) {
     const result = await loginUser(parsed.data);
 
     if (!result.success) {
-      return apiError(result.error, 401);
+      return apiError(result.error ?? { code: 'INVALID_CREDENTIALS', message: 'Invalid credentials' }, 401);
     }
 
     // Set session cookie - TypeScript knows session/user exist when success is true
