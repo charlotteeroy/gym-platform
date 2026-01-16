@@ -61,9 +61,9 @@ services:
     # -------------------------------------------------------------------------
     # START COMMAND
     # -------------------------------------------------------------------------
-    # Run the standalone Next.js server
+    # Run the standalone Next.js server with proper host binding
     # -------------------------------------------------------------------------
-    startCommand: node apps/web/.next/standalone/apps/web/server.js
+    startCommand: HOSTNAME=0.0.0.0 PORT=10000 node apps/web/.next/standalone/apps/web/server.js
 
     # -------------------------------------------------------------------------
     # ENVIRONMENT VARIABLES
