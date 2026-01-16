@@ -144,17 +144,12 @@ export async function POST(request: Request) {
     }
 
     // Generate invoice number
-    const lastInvoice = await prisma.invoice.findFirst({
+    const invoiceCount = await prisma.invoice.count({
       where: { gymId: staff.gymId },
-      orderBy: { createdAt: 'desc' },
-      select: { invoiceNumber: true },
     });
 
-    let invoiceNumber = 'INV-0001';
-    if (lastInvoice) {
-      const lastNumber = parseInt(lastInvoice.invoiceNumber.split('-')[1] || '0', 10);
-      invoiceNumber = `INV-${String(lastNumber + 1).padStart(4, '0')}`;
-    }
+    const year = new Date().getFullYear();
+    const invoiceNumber = `INV-${year}-${String(invoiceCount + 1).padStart(3, '0')}`;
 
     // Calculate totals
     const items = parsed.data.items.map((item) => ({
