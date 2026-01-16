@@ -46,8 +46,14 @@ services:
       pnpm db:push &&
       pnpm db:seed &&
       pnpm build &&
-      cp -r apps/web/.next/static apps/web/.next/standalone/apps/web/.next/static &&
-      cp -r apps/web/public apps/web/.next/standalone/apps/web/public
+      echo "=== DEBUG: Standalone directory contents ===" &&
+      ls -la apps/web/.next/standalone/ &&
+      echo "=== DEBUG: Looking for apps/ ===" &&
+      find apps/web/.next/standalone -type d -name "apps" 2>/dev/null || echo "No apps dir found" &&
+      echo "=== DEBUG: Looking for server.js ===" &&
+      find apps/web/.next/standalone -name "server.js" 2>/dev/null || echo "No server.js found" &&
+      echo "=== DEBUG: Full tree (first 50 entries) ===" &&
+      find apps/web/.next/standalone -type f | head -50
 
     # -------------------------------------------------------------------------
     # START COMMAND
