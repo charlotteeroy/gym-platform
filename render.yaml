@@ -37,18 +37,23 @@ services:
     # -------------------------------------------------------------------------
     # BUILD COMMAND
     # -------------------------------------------------------------------------
+    # With outputFileTracingRoot set to monorepo root, standalone output is at:
+    # apps/web/.next/standalone/apps/web/
     buildCommand: |
       npm install -g pnpm &&
       NODE_ENV=development pnpm install &&
       pnpm db:generate &&
       pnpm db:push &&
       pnpm db:seed &&
-      pnpm build
+      pnpm build &&
+      cp -r apps/web/.next/static apps/web/.next/standalone/apps/web/.next/static &&
+      cp -r apps/web/public apps/web/.next/standalone/apps/web/public
 
     # -------------------------------------------------------------------------
     # START COMMAND
     # -------------------------------------------------------------------------
-    startCommand: pnpm --filter @gym/web start
+    # Run the standalone server directly
+    startCommand: node apps/web/.next/standalone/apps/web/server.js
 
     # -------------------------------------------------------------------------
     # ENVIRONMENT VARIABLES
