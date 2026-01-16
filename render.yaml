@@ -37,33 +37,18 @@ services:
     # -------------------------------------------------------------------------
     # BUILD COMMAND
     # -------------------------------------------------------------------------
-    # This runs during deployment to prepare the application.
-    #
-    # Step-by-step breakdown:
-    # 1. npm install -g pnpm          - Install pnpm (not available by default on Render)
-    # 2. NODE_ENV=development pnpm install - Install all dependencies (need dev deps for build)
-    # 3. pnpm db:generate             - Generate Prisma client from schema
-    # 4. pnpm db:push                 - Apply schema changes to database
-    # 5. pnpm db:seed                 - Populate database with test data
-    # 6. pnpm build                   - Build all packages via Turborepo
-    # 7. Copy static files and public folder to standalone output
-    # -------------------------------------------------------------------------
     buildCommand: |
       npm install -g pnpm &&
       NODE_ENV=development pnpm install &&
       pnpm db:generate &&
       pnpm db:push &&
       pnpm db:seed &&
-      pnpm build &&
-      cp -r apps/web/public apps/web/.next/standalone/apps/web/ &&
-      cp -r apps/web/.next/static apps/web/.next/standalone/apps/web/.next/
+      pnpm build
 
     # -------------------------------------------------------------------------
     # START COMMAND
     # -------------------------------------------------------------------------
-    # Run the standalone Next.js server with proper host binding
-    # -------------------------------------------------------------------------
-    startCommand: HOSTNAME=0.0.0.0 PORT=10000 node apps/web/.next/standalone/apps/web/server.js
+    startCommand: pnpm --filter @gym/web start
 
     # -------------------------------------------------------------------------
     # ENVIRONMENT VARIABLES

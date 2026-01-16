@@ -7,9 +7,6 @@ const nextConfig = {
   // Enable React strict mode for better development warnings
   reactStrictMode: true,
 
-  // Standalone output for optimized production deployment
-  output: 'standalone',
-
   // Transpile workspace packages so Next.js can bundle them correctly
   // Without this, imports from @gym/* packages would fail
   transpilePackages: ['@gym/core', '@gym/database', '@gym/shared'],
