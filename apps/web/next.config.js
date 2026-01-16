@@ -1,5 +1,3 @@
-const path = require('path');
-
 /**
  * Next.js Configuration
  *
@@ -8,12 +6,6 @@ const path = require('path');
 const nextConfig = {
   // Enable React strict mode for better development warnings
   reactStrictMode: true,
-
-  // Standalone output for production deployment
-  output: 'standalone',
-
-  // Required for monorepo standalone builds - tells Next.js where the monorepo root is
-  outputFileTracingRoot: path.join(__dirname, '../../'),
 
   // Transpile workspace packages so Next.js can bundle them correctly
   // Without this, imports from @gym/* packages would fail

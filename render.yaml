@@ -37,35 +37,18 @@ services:
     # -------------------------------------------------------------------------
     # BUILD COMMAND
     # -------------------------------------------------------------------------
-    # With outputFileTracingRoot set to monorepo root, standalone output is at:
-    # apps/web/.next/standalone/apps/web/
     buildCommand: |
       npm install -g pnpm &&
       NODE_ENV=development pnpm install &&
       pnpm db:generate &&
       pnpm db:push &&
       pnpm db:seed &&
-      pnpm build &&
-      cp -r apps/web/.next/static apps/web/.next/standalone/apps/web/.next/static &&
-      cp -r apps/web/public apps/web/.next/standalone/apps/web/public &&
-      echo "=== Copying Prisma engine to all search locations ===" &&
-      PRISMA_ENGINE=$(find node_modules -name "libquery_engine-debian-openssl-3.0.x.so.node" | head -1) &&
-      echo "Found engine at: $PRISMA_ENGINE" &&
-      mkdir -p apps/web/.next/standalone/node_modules/.prisma/client &&
-      mkdir -p apps/web/.next/standalone/apps/web/.prisma/client &&
-      mkdir -p apps/web/.next/standalone/apps/web/.next/server &&
-      cp "$PRISMA_ENGINE" apps/web/.next/standalone/node_modules/.prisma/client/ &&
-      cp "$PRISMA_ENGINE" apps/web/.next/standalone/apps/web/.prisma/client/ &&
-      cp "$PRISMA_ENGINE" apps/web/.next/standalone/apps/web/.next/server/ &&
-      echo "=== Prisma engine copied to: ===" &&
-      ls -la apps/web/.next/standalone/node_modules/.prisma/client/ &&
-      ls -la apps/web/.next/standalone/apps/web/.prisma/client/
+      pnpm build
 
     # -------------------------------------------------------------------------
     # START COMMAND
     # -------------------------------------------------------------------------
-    # Run the standalone server directly
-    startCommand: node apps/web/.next/standalone/apps/web/server.js
+    startCommand: pnpm --filter @gym/web start
 
     # -------------------------------------------------------------------------
     # ENVIRONMENT VARIABLES
