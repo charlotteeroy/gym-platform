@@ -48,8 +48,18 @@ services:
       pnpm build &&
       cp -r apps/web/.next/static apps/web/.next/standalone/apps/web/.next/static &&
       cp -r apps/web/public apps/web/.next/standalone/apps/web/public &&
+      echo "=== Copying Prisma engine to all search locations ===" &&
+      PRISMA_ENGINE=$(find node_modules -name "libquery_engine-debian-openssl-3.0.x.so.node" | head -1) &&
+      echo "Found engine at: $PRISMA_ENGINE" &&
       mkdir -p apps/web/.next/standalone/node_modules/.prisma/client &&
-      cp node_modules/.pnpm/@prisma+client@*/node_modules/.prisma/client/*.node apps/web/.next/standalone/node_modules/.prisma/client/ 2>/dev/null || cp node_modules/.prisma/client/*.node apps/web/.next/standalone/node_modules/.prisma/client/ 2>/dev/null || echo "Prisma engines copied"
+      mkdir -p apps/web/.next/standalone/apps/web/.prisma/client &&
+      mkdir -p apps/web/.next/standalone/apps/web/.next/server &&
+      cp "$PRISMA_ENGINE" apps/web/.next/standalone/node_modules/.prisma/client/ &&
+      cp "$PRISMA_ENGINE" apps/web/.next/standalone/apps/web/.prisma/client/ &&
+      cp "$PRISMA_ENGINE" apps/web/.next/standalone/apps/web/.next/server/ &&
+      echo "=== Prisma engine copied to: ===" &&
+      ls -la apps/web/.next/standalone/node_modules/.prisma/client/ &&
+      ls -la apps/web/.next/standalone/apps/web/.prisma/client/
 
     # -------------------------------------------------------------------------
     # START COMMAND
