@@ -1,4 +1,4 @@
-import { PrismaClient, StaffRole, BillingInterval, MemberStatus, SubscriptionStatus, CheckInMethod } from '@prisma/client';
+import { PrismaClient, StaffRole, BillingInterval, MemberStatus, SubscriptionStatus, CheckInMethod, PaymentStatus, PaymentMethod, InvoiceStatus, ExpenseCategory, PayoutStatus } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -48,6 +48,11 @@ async function main() {
   await prisma.checkIn.deleteMany({});
   await prisma.classSession.deleteMany({});
   await prisma.class.deleteMany({});
+  await prisma.invoiceItem.deleteMany({});
+  await prisma.payment.deleteMany({});
+  await prisma.invoice.deleteMany({});
+  await prisma.expense.deleteMany({});
+  await prisma.payout.deleteMany({});
   await prisma.subscription.deleteMany({});
   await prisma.member.deleteMany({});
   await prisma.membershipPlan.deleteMany({});
@@ -439,6 +444,180 @@ async function main() {
 
   console.log('Added future class bookings');
 
+  // ========== BILLING DATA ==========
+
+  // ===== PAYMENTS =====
+  const paymentData = [
+    { amount: 79.99, status: PaymentStatus.COMPLETED, method: PaymentMethod.CARD, description: 'Premium Monthly - January', daysAgo: 2 },
+    { amount: 79.99, status: PaymentStatus.COMPLETED, method: PaymentMethod.CARD, description: 'Premium Monthly - January', daysAgo: 3 },
+    { amount: 29.99, status: PaymentStatus.COMPLETED, method: PaymentMethod.CARD, description: 'Basic Monthly - January', daysAgo: 4 },
+    { amount: 799.99, status: PaymentStatus.COMPLETED, method: PaymentMethod.CARD, description: 'Annual Premium', daysAgo: 5 },
+    { amount: 79.99, status: PaymentStatus.COMPLETED, method: PaymentMethod.CARD, description: 'Premium Monthly - January', daysAgo: 6 },
+    { amount: 29.99, status: PaymentStatus.COMPLETED, method: PaymentMethod.CASH, description: 'Basic Monthly - January', daysAgo: 7 },
+    { amount: 150.00, status: PaymentStatus.COMPLETED, method: PaymentMethod.CARD, description: 'Personal Training Session (3x)', daysAgo: 8 },
+    { amount: 79.99, status: PaymentStatus.PENDING, method: PaymentMethod.CARD, description: 'Premium Monthly - Processing', daysAgo: 0 },
+    { amount: 29.99, status: PaymentStatus.FAILED, method: PaymentMethod.CARD, description: 'Basic Monthly - Card Declined', daysAgo: 1 },
+    { amount: 79.99, status: PaymentStatus.REFUNDED, method: PaymentMethod.CARD, description: 'Premium Monthly - Refunded', daysAgo: 10 },
+    { amount: 29.99, status: PaymentStatus.COMPLETED, method: PaymentMethod.BANK_TRANSFER, description: 'Basic Monthly - December', daysAgo: 32 },
+    { amount: 79.99, status: PaymentStatus.COMPLETED, method: PaymentMethod.CARD, description: 'Premium Monthly - December', daysAgo: 33 },
+    { amount: 79.99, status: PaymentStatus.COMPLETED, method: PaymentMethod.CARD, description: 'Premium Monthly - December', daysAgo: 34 },
+    { amount: 29.99, status: PaymentStatus.COMPLETED, method: PaymentMethod.CARD, description: 'Basic Monthly - December', daysAgo: 35 },
+    { amount: 799.99, status: PaymentStatus.COMPLETED, method: PaymentMethod.CARD, description: 'Annual Premium', daysAgo: 40 },
+    { amount: 50.00, status: PaymentStatus.COMPLETED, method: PaymentMethod.CASH, description: 'Guest Pass (5x)', daysAgo: 12 },
+    { amount: 25.00, status: PaymentStatus.COMPLETED, method: PaymentMethod.CARD, description: 'Merchandise - Water Bottle', daysAgo: 15 },
+    { amount: 45.00, status: PaymentStatus.COMPLETED, method: PaymentMethod.CARD, description: 'Merchandise - Gym Shirt', daysAgo: 18 },
+  ];
+
+  for (const p of paymentData) {
+    const randomMember = members[Math.floor(Math.random() * members.length)];
+    await prisma.payment.create({
+      data: {
+        amount: p.amount,
+        status: p.status,
+        method: p.method,
+        description: p.description,
+        memberId: randomMember.id,
+        gymId: gym.id,
+        createdAt: randomDate(p.daysAgo),
+      },
+    });
+  }
+
+  console.log('Created', paymentData.length, 'payments');
+
+  // ===== INVOICES =====
+  const invoiceData = [
+    { number: 'INV-2024-001', status: InvoiceStatus.PAID, subtotal: 79.99, daysAgo: 30, items: [{ desc: 'Premium Monthly Membership', qty: 1, price: 79.99 }] },
+    { number: 'INV-2024-002', status: InvoiceStatus.PAID, subtotal: 159.98, daysAgo: 28, items: [{ desc: 'Premium Monthly Membership', qty: 1, price: 79.99 }, { desc: 'Personal Training (1 session)', qty: 1, price: 79.99 }] },
+    { number: 'INV-2024-003', status: InvoiceStatus.PAID, subtotal: 29.99, daysAgo: 25, items: [{ desc: 'Basic Monthly Membership', qty: 1, price: 29.99 }] },
+    { number: 'INV-2024-004', status: InvoiceStatus.SENT, subtotal: 79.99, daysAgo: 5, items: [{ desc: 'Premium Monthly Membership', qty: 1, price: 79.99 }] },
+    { number: 'INV-2024-005', status: InvoiceStatus.SENT, subtotal: 29.99, daysAgo: 3, items: [{ desc: 'Basic Monthly Membership', qty: 1, price: 29.99 }] },
+    { number: 'INV-2024-006', status: InvoiceStatus.OVERDUE, subtotal: 79.99, daysAgo: 45, items: [{ desc: 'Premium Monthly Membership', qty: 1, price: 79.99 }] },
+    { number: 'INV-2024-007', status: InvoiceStatus.OVERDUE, subtotal: 109.98, daysAgo: 40, items: [{ desc: 'Basic Monthly Membership', qty: 1, price: 29.99 }, { desc: 'Late Fee', qty: 1, price: 80.00 }] },
+    { number: 'INV-2024-008', status: InvoiceStatus.DRAFT, subtotal: 799.99, daysAgo: 1, items: [{ desc: 'Annual Premium Membership', qty: 1, price: 799.99 }] },
+    { number: 'INV-2024-009', status: InvoiceStatus.CANCELLED, subtotal: 79.99, daysAgo: 20, items: [{ desc: 'Premium Monthly Membership', qty: 1, price: 79.99 }] },
+    { number: 'INV-2024-010', status: InvoiceStatus.PAID, subtotal: 239.97, daysAgo: 15, items: [{ desc: 'Personal Training Package (3 sessions)', qty: 3, price: 79.99 }] },
+  ];
+
+  for (const inv of invoiceData) {
+    const randomMember = members[Math.floor(Math.random() * members.length)];
+    const tax = Math.round(inv.subtotal * 0.08 * 100) / 100; // 8% tax
+    const total = Math.round((inv.subtotal + tax) * 100) / 100;
+    const dueDate = new Date();
+    dueDate.setDate(dueDate.getDate() - inv.daysAgo + 30);
+
+    const invoice = await prisma.invoice.create({
+      data: {
+        invoiceNumber: inv.number,
+        status: inv.status,
+        subtotal: inv.subtotal,
+        tax: tax,
+        total: total,
+        dueDate: dueDate,
+        memberId: randomMember.id,
+        gymId: gym.id,
+        createdAt: randomDate(inv.daysAgo),
+      },
+    });
+
+    // Create invoice items
+    for (const item of inv.items) {
+      await prisma.invoiceItem.create({
+        data: {
+          description: item.desc,
+          quantity: item.qty,
+          unitPrice: item.price,
+          total: item.qty * item.price,
+          invoiceId: invoice.id,
+        },
+      });
+    }
+  }
+
+  console.log('Created', invoiceData.length, 'invoices with items');
+
+  // ===== EXPENSES =====
+  const expenseData = [
+    // Operating expenses
+    { amount: 3500.00, category: ExpenseCategory.RENT, description: 'Monthly Rent - January', vendor: 'Commercial Properties LLC', daysAgo: 5 },
+    { amount: 3500.00, category: ExpenseCategory.RENT, description: 'Monthly Rent - December', vendor: 'Commercial Properties LLC', daysAgo: 35 },
+    { amount: 450.00, category: ExpenseCategory.UTILITIES, description: 'Electricity - January', vendor: 'City Power Co', daysAgo: 8 },
+    { amount: 125.00, category: ExpenseCategory.UTILITIES, description: 'Water - January', vendor: 'Water District', daysAgo: 10 },
+    { amount: 89.99, category: ExpenseCategory.UTILITIES, description: 'Internet - January', vendor: 'FastNet ISP', daysAgo: 7 },
+    { amount: 380.00, category: ExpenseCategory.UTILITIES, description: 'Electricity - December', vendor: 'City Power Co', daysAgo: 38 },
+    { amount: 2500.00, category: ExpenseCategory.EQUIPMENT, description: 'New Treadmill', vendor: 'FitEquip Pro', daysAgo: 20 },
+    { amount: 850.00, category: ExpenseCategory.EQUIPMENT, description: 'Dumbbell Set (5-50 lbs)', vendor: 'Iron Works', daysAgo: 45 },
+    { amount: 320.00, category: ExpenseCategory.EQUIPMENT, description: 'Yoga Mats (20x)', vendor: 'Yoga Supplies Inc', daysAgo: 30 },
+    { amount: 175.00, category: ExpenseCategory.MAINTENANCE, description: 'HVAC Filter Replacement', vendor: 'Cool Air Services', daysAgo: 15 },
+    { amount: 450.00, category: ExpenseCategory.MAINTENANCE, description: 'Treadmill Repair', vendor: 'FitEquip Pro', daysAgo: 25 },
+    { amount: 85.00, category: ExpenseCategory.MAINTENANCE, description: 'Deep Cleaning Service', vendor: 'CleanPro', daysAgo: 12 },
+    // Marketing expenses
+    { amount: 500.00, category: ExpenseCategory.MARKETING, description: 'Facebook/Instagram Ads - January', vendor: 'Meta Platforms', daysAgo: 3 },
+    { amount: 250.00, category: ExpenseCategory.MARKETING, description: 'Google Ads - January', vendor: 'Google Ads', daysAgo: 5 },
+    { amount: 150.00, category: ExpenseCategory.MARKETING, description: 'Flyers & Posters Printing', vendor: 'PrintShop Local', daysAgo: 18 },
+    { amount: 75.00, category: ExpenseCategory.MARKETING, description: 'Email Marketing Tool', vendor: 'Mailchimp', daysAgo: 2 },
+    // Payroll expenses
+    { amount: 4500.00, category: ExpenseCategory.PAYROLL, description: 'Staff Wages - January Week 1', vendor: 'Payroll', daysAgo: 7 },
+    { amount: 4500.00, category: ExpenseCategory.PAYROLL, description: 'Staff Wages - January Week 2', vendor: 'Payroll', daysAgo: 14 },
+    { amount: 4500.00, category: ExpenseCategory.PAYROLL, description: 'Staff Wages - December Week 4', vendor: 'Payroll', daysAgo: 21 },
+    { amount: 1200.00, category: ExpenseCategory.PAYROLL, description: 'Contractor - Personal Trainer', vendor: 'Mike Trainer', daysAgo: 10 },
+    // Other expenses
+    { amount: 299.00, category: ExpenseCategory.SUPPLIES, description: 'Cleaning Supplies', vendor: 'CleanCo', daysAgo: 22 },
+    { amount: 150.00, category: ExpenseCategory.SUPPLIES, description: 'Towels (50x)', vendor: 'Towel World', daysAgo: 28 },
+    { amount: 89.00, category: ExpenseCategory.SUPPLIES, description: 'Hand Sanitizer & Wipes', vendor: 'SafeClean', daysAgo: 14 },
+    { amount: 1200.00, category: ExpenseCategory.INSURANCE, description: 'Liability Insurance - Monthly', vendor: 'GymSafe Insurance', daysAgo: 4 },
+    { amount: 1200.00, category: ExpenseCategory.INSURANCE, description: 'Liability Insurance - Monthly', vendor: 'GymSafe Insurance', daysAgo: 34 },
+    { amount: 350.00, category: ExpenseCategory.OTHER, description: 'Accounting Software', vendor: 'QuickBooks', daysAgo: 6 },
+    { amount: 99.00, category: ExpenseCategory.OTHER, description: 'Music Streaming License', vendor: 'Soundtrack Your Brand', daysAgo: 8 },
+  ];
+
+  for (const exp of expenseData) {
+    await prisma.expense.create({
+      data: {
+        amount: exp.amount,
+        category: exp.category,
+        description: exp.description,
+        vendor: exp.vendor,
+        date: randomDate(exp.daysAgo),
+        gymId: gym.id,
+        staffId: owner.id, // Owner recorded the expenses
+        createdAt: randomDate(exp.daysAgo),
+      },
+    });
+  }
+
+  console.log('Created', expenseData.length, 'expenses');
+
+  // ===== PAYOUTS =====
+  const payoutData = [
+    { amount: 5250.00, status: PayoutStatus.PAID, description: 'Weekly Payout - Jan Week 2', daysAgo: 3 },
+    { amount: 4890.00, status: PayoutStatus.PAID, description: 'Weekly Payout - Jan Week 1', daysAgo: 10 },
+    { amount: 5120.00, status: PayoutStatus.PAID, description: 'Weekly Payout - Dec Week 4', daysAgo: 17 },
+    { amount: 4750.00, status: PayoutStatus.PAID, description: 'Weekly Payout - Dec Week 3', daysAgo: 24 },
+    { amount: 5500.00, status: PayoutStatus.PROCESSING, description: 'Weekly Payout - Jan Week 3', daysAgo: 0 },
+    { amount: 3200.00, status: PayoutStatus.PENDING, description: 'Pending Payout', daysAgo: 0 },
+    { amount: 4100.00, status: PayoutStatus.FAILED, description: 'Failed Payout - Bank Error', daysAgo: 5 },
+  ];
+
+  for (const payout of payoutData) {
+    const scheduledDate = randomDate(payout.daysAgo);
+    const paidAt = payout.status === PayoutStatus.PAID ? new Date(scheduledDate.getTime() + 2 * 24 * 60 * 60 * 1000) : null;
+
+    await prisma.payout.create({
+      data: {
+        amount: payout.amount,
+        status: payout.status,
+        description: payout.description,
+        scheduledDate: scheduledDate,
+        paidAt: paidAt,
+        gymId: gym.id,
+        createdAt: scheduledDate,
+      },
+    });
+  }
+
+  console.log('Created', payoutData.length, 'payouts');
+
   console.log('');
   console.log('========================================');
   console.log('           SEEDING COMPLETED           ');
@@ -460,6 +639,10 @@ async function main() {
   console.log('  - 8 different class types');
   console.log('  - Class sessions for past 30 days + next 14 days');
   console.log('  - Check-ins and bookings based on activity level');
+  console.log('  - 18 payments (completed, pending, failed, refunded)');
+  console.log('  - 10 invoices with line items');
+  console.log('  - 27 expenses across all categories');
+  console.log('  - 7 payouts (paid, processing, pending, failed)');
   console.log('');
 }
 
