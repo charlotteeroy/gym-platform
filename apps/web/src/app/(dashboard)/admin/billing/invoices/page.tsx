@@ -176,10 +176,11 @@ export default function InvoicesPage() {
 
   const fetchMembers = async () => {
     try {
-      const response = await fetch('/api/members');
+      const response = await fetch('/api/members?limit=100');
       const data = await response.json();
       if (data.success) {
-        setMembers(data.data.members || data.data);
+        // API returns { items, meta } structure
+        setMembers(data.data.items || data.data.members || []);
       }
     } catch (error) {
       console.error('Failed to fetch members:', error);
