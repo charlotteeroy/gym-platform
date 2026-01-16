@@ -46,8 +46,7 @@ services:
     # 4. pnpm db:push                 - Apply schema changes to database
     # 5. pnpm db:seed                 - Populate database with test data
     # 6. pnpm build                   - Build all packages via Turborepo
-    #
-    # NOTE: We do NOT use standalone mode, so no file copying is needed.
+    # 7. Copy static files and public folder to standalone output
     # -------------------------------------------------------------------------
     buildCommand: |
       npm install -g pnpm &&
@@ -55,20 +54,16 @@ services:
       pnpm db:generate &&
       pnpm db:push &&
       pnpm db:seed &&
-      pnpm build
+      pnpm build &&
+      cp -r apps/web/public apps/web/.next/standalone/apps/web/ &&
+      cp -r apps/web/.next/static apps/web/.next/standalone/apps/web/.next/
 
     # -------------------------------------------------------------------------
     # START COMMAND
     # -------------------------------------------------------------------------
-    # This runs to start the application after build completes.
-    #
-    # We use `pnpm --filter @gym/web start` which runs `next start` in the web app.
-    # This is simpler and more reliable than standalone mode for Render deployment.
-    #
-    # DO NOT use: node apps/web/.next/standalone/apps/web/server.js
-    # That requires standalone mode which we've disabled.
+    # Run the standalone Next.js server
     # -------------------------------------------------------------------------
-    startCommand: pnpm --filter @gym/web start
+    startCommand: node apps/web/.next/standalone/apps/web/server.js
 
     # -------------------------------------------------------------------------
     # ENVIRONMENT VARIABLES
