@@ -600,18 +600,18 @@ async function main() {
   ];
 
   for (const payout of payoutData) {
-    const scheduledDate = randomDate(payout.daysAgo);
-    const paidAt = payout.status === PayoutStatus.PAID ? new Date(scheduledDate.getTime() + 2 * 24 * 60 * 60 * 1000) : null;
+    const scheduledAt = randomDate(payout.daysAgo);
+    const processedAt = payout.status === PayoutStatus.PAID ? new Date(scheduledAt.getTime() + 2 * 24 * 60 * 60 * 1000) : null;
 
     await prisma.payout.create({
       data: {
         amount: payout.amount,
         status: payout.status,
         description: payout.description,
-        scheduledDate: scheduledDate,
-        paidAt: paidAt,
+        scheduledAt: scheduledAt,
+        processedAt: processedAt,
         gymId: gym.id,
-        createdAt: scheduledDate,
+        createdAt: scheduledAt,
       },
     });
   }
