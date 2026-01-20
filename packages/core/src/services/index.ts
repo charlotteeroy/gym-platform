@@ -152,3 +152,18 @@ export {
   getMembersByTag,
   createDefaultTags,
 } from './tag.service';
+
+// Forecast service
+export {
+  type RevenueForecast,
+  type ChurnRiskMember,
+  type ChurnMetrics,
+  type ForecastData,
+  calculateNormalizedMRR,
+  getMemberChurnRisk,
+  getChurnMetrics,
+  getHistoricalRevenue,
+  getRenewalsByWeek,
+  getRevenueForecasts,
+  getForecastData,
+} from './forecast.service';

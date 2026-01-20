@@ -26,9 +26,11 @@ import {
   UserPlus,
   UserMinus,
   Zap,
+  Calculator,
 } from 'lucide-react';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
+import { ForecastCards, ChurnRiskPanel, RevenueChart, ScenarioModal } from '@/components/admin';
 
 interface BillingStats {
   mrr: number;
@@ -73,6 +75,62 @@ interface RecentTransaction {
   } | null;
 }
 
+// Forecast types
+interface RevenueForecast {
+  period: '30day' | '60day' | '90day';
+  projectedRevenue: number;
+  confidenceLow: number;
+  confidenceHigh: number;
+  expectedChurn: number;
+  expectedChurnRevenue: number;
+  scheduledCancellations: number;
+  renewals: number;
+  growthRate: number;
+}
+
+interface ChurnRiskMember {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  riskScore: number;
+  riskFactors: string[];
+  subscriptionValue: number;
+  lastActivity: string | null;
+  daysSinceActivity: number;
+  subscriptionEnds: string;
+  cancelAtPeriodEnd: boolean;
+}
+
+interface ChurnMetrics {
+  atRiskCount: number;
+  atRiskRevenue: number;
+  scheduledCancellations: number;
+  scheduledCancellationRevenue: number;
+  churnRateThisMonth: number;
+  churnRateTrend: 'up' | 'down' | 'stable';
+  historicalChurnRate: number;
+}
+
+interface ForecastData {
+  currentMRR: number;
+  normalizedMRR: number;
+  activeSubscriptions: number;
+  avgSubscriptionValue: number;
+  forecasts: RevenueForecast[];
+  churn: ChurnMetrics;
+  atRiskMembers: ChurnRiskMember[];
+  history: {
+    months: string[];
+    actualRevenue: number[];
+  };
+  renewalsByWeek: {
+    week: string;
+    count: number;
+    revenue: number;
+  }[];
+}
+
 export default function BillingOverviewPage() {
   const [stats, setStats] = useState<BillingStats | null>(null);
   const [revenueBreakdown, setRevenueBreakdown] = useState<RevenueBreakdown | null>(null);
@@ -80,13 +138,38 @@ export default function BillingOverviewPage() {
   const [recentTransactions, setRecentTransactions] = useState<RecentTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Forecast state
+  const [forecastData, setForecastData] = useState<ForecastData | null>(null);
+  const [isForecastLoading, setIsForecastLoading] = useState(true);
+  const [isScenarioModalOpen, setIsScenarioModalOpen] = useState(false);
+
   useEffect(() => {
     fetchBillingData();
+    fetchForecastData();
   }, []);
+
+  const fetchForecastData = async () => {
+    try {
+      setIsForecastLoading(true);
+      const response = await fetch('/api/admin/billing/forecast');
+      const data = await response.json();
+
+      if (data.success) {
+        setForecastData(data.data);
+      } else {
+        console.error('Forecast API error:', data.error);
+      }
+    } catch (error) {
+      console.error('Failed to fetch forecast data:', error);
+    } finally {
+      setIsForecastLoading(false);
+    }
+  };
 
   const fetchBillingData = async () => {
     try {
       setIsLoading(true);
+      console.log('[Billing] Starting to fetch billing data...');
 
       const [paymentsRes, invoicesRes, membersRes, payoutsRes] = await Promise.all([
         fetch('/api/admin/payments'),
@@ -94,6 +177,7 @@ export default function BillingOverviewPage() {
         fetch('/api/members'),
         fetch('/api/admin/payouts'),
       ]);
+      console.log('[Billing] Fetch responses received');
 
       const [paymentsData, invoicesData, membersData, payoutsData] = await Promise.all([
         paymentsRes.json(),
@@ -101,6 +185,12 @@ export default function BillingOverviewPage() {
         membersRes.json(),
         payoutsRes.json(),
       ]);
+      console.log('[Billing] JSON parsed:', {
+        payments: paymentsData.success,
+        invoices: invoicesData.success,
+        members: membersData.success,
+        payouts: payoutsData.success
+      });
 
       const payments = paymentsData.success ? paymentsData.data.payments : [];
       const invoices = invoicesData.success ? invoicesData.data.invoices : [];
@@ -235,6 +325,7 @@ export default function BillingOverviewPage() {
     } catch (error) {
       console.error('Failed to fetch billing data:', error);
     } finally {
+      console.log('[Billing] Setting isLoading to false');
       setIsLoading(false);
     }
   };
@@ -380,6 +471,46 @@ export default function BillingOverviewPage() {
             </p>
           </div>
         </div>
+
+        {/* Revenue Forecast Section */}
+        <ForecastCards
+          currentMRR={forecastData?.currentMRR || 0}
+          normalizedMRR={forecastData?.normalizedMRR || 0}
+          forecasts={forecastData?.forecasts || []}
+          isLoading={isForecastLoading}
+        />
+
+        {/* What-If Analysis Button */}
+        {forecastData && (
+          <div className="flex justify-end">
+            <Button
+              variant="outline"
+              onClick={() => setIsScenarioModalOpen(true)}
+              className="rounded-xl text-slate-600 border-slate-200 hover:border-indigo-200 hover:text-indigo-600"
+            >
+              <Calculator className="w-4 h-4 mr-2" />
+              What-If Analysis
+            </Button>
+          </div>
+        )}
+
+        {/* Revenue Chart with Forecast */}
+        {forecastData && (
+          <RevenueChart
+            history={forecastData.history}
+            forecasts={forecastData.forecasts}
+            isLoading={isForecastLoading}
+          />
+        )}
+
+        {/* Churn Risk Panel */}
+        {forecastData && (
+          <ChurnRiskPanel
+            churn={forecastData.churn}
+            atRiskMembers={forecastData.atRiskMembers}
+            isLoading={isForecastLoading}
+          />
+        )}
 
         {/* Charts Row */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -564,12 +695,37 @@ export default function BillingOverviewPage() {
 
         {/* Refresh */}
         <div className="flex justify-center">
-          <Button variant="outline" onClick={fetchBillingData} className="rounded-xl text-slate-600">
+          <Button
+            variant="outline"
+            onClick={() => {
+              fetchBillingData();
+              fetchForecastData();
+            }}
+            className="rounded-xl text-slate-600"
+          >
             <RefreshCw className="mr-2 w-4 h-4" />
             Refresh Data
           </Button>
         </div>
       </div>
+
+      {/* Scenario Modal */}
+      {forecastData && (
+        <ScenarioModal
+          isOpen={isScenarioModalOpen}
+          onClose={() => setIsScenarioModalOpen(false)}
+          currentMetrics={{
+            currentMRR: forecastData.currentMRR,
+            activeSubscriptions: forecastData.activeSubscriptions,
+            avgRevenuePerMember: forecastData.avgSubscriptionValue,
+            churnRateThisMonth: forecastData.churn.churnRateThisMonth,
+            newSignupsPerMonth: stats?.newSubscriptionsThisMonth || 0,
+          }}
+          baselineProjection90Day={
+            forecastData.forecasts.find((f) => f.period === '90day')?.projectedRevenue || 0
+          }
+        />
+      )}
     </>
   );
 }

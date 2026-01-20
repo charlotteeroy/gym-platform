@@ -829,7 +829,7 @@ All API endpoints return a consistent JSON structure:
 /members/[id]           # Individual member details
 /admin/gym              # Gym profile settings
 /admin/staff            # Staff management
-/admin/billing          # Billing dashboard
+/admin/billing          # Billing dashboard with revenue forecasting
   /payments             # Payment history
   /invoices             # Invoice management
   /expenses             # Expense tracking
@@ -1038,6 +1038,68 @@ pnpm dev
 
 # 6. Open http://localhost:3000
 # Login: owner@demo.com / password123
+```
+
+---
+
+## Implemented Features
+
+### Revenue Forecasting & Churn Prediction
+
+**Purpose:** Provides 30/60/90-day revenue projections and churn risk analysis for the billing dashboard.
+**Product Context:** Supports Owner Pillar - "Long-term Resilience" with predictive analytics.
+
+#### Components
+
+| File | Purpose |
+|------|---------|
+| `packages/core/src/services/forecast.service.ts` | Core forecasting calculations and churn risk analysis |
+| `apps/web/src/app/api/admin/billing/forecast/route.ts` | API endpoint for forecast data |
+| `apps/web/src/components/admin/forecast-cards.tsx` | 30/60/90 day revenue forecast cards |
+| `apps/web/src/components/admin/churn-risk-panel.tsx` | At-risk members panel with risk scores |
+| `apps/web/src/components/admin/revenue-chart.tsx` | Historical + projected revenue chart (recharts) |
+| `apps/web/src/components/admin/scenario-modal.tsx` | What-if analysis for scenario modeling |
+
+#### Key Algorithms
+
+**Normalized MRR Calculation:**
+```typescript
+// Convert billing intervals to monthly equivalent
+WEEKLY: 4.33     // 52 weeks / 12 months
+MONTHLY: 1
+QUARTERLY: 0.333 // 1/3
+YEARLY: 0.0833   // 1/12
+```
+
+**Churn Risk Score (0-100):**
+- No activity in 14 days: +25 points
+- No activity in 30+ days: +20 points
+- Never checked in: +15 points
+- No recent bookings: +10 points
+- Scheduled to cancel: +30 points
+- Payment past due: +20 points
+- New member (< 90 days): +5 points
+- Activity decline 50%+: +15 points
+
+#### API Response Structure
+
+```typescript
+GET /api/admin/billing/forecast
+
+{
+  success: true,
+  data: {
+    currentMRR: number,
+    normalizedMRR: number,
+    activeSubscriptions: number,
+    avgSubscriptionValue: number,
+    forecasts: RevenueForecast[],  // 30/60/90 day projections
+    churn: ChurnMetrics,
+    atRiskMembers: ChurnRiskMember[],
+    history: { months: string[], actualRevenue: number[] },
+    renewalsByWeek: { week: string, count: number, revenue: number }[]
+  }
+}
 ```
 
 ---
