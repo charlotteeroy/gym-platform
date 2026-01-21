@@ -1,4 +1,4 @@
-import { createCheckoutSession } from '@gym/core';
+import { createConnectCheckoutSession } from '@gym/core';
 import { getSession, getCurrentMember } from '@/lib/auth';
 import { apiSuccess, apiError, apiUnauthorized } from '@/lib/api';
 
@@ -26,7 +26,8 @@ export async function POST(request: Request) {
     const successUrl = `${baseUrl}/dashboard?subscription=success`;
     const cancelUrl = `${baseUrl}/dashboard?subscription=cancelled`;
 
-    const result = await createCheckoutSession(member.id, planId, successUrl, cancelUrl);
+    // Use Connect checkout (falls back to regular checkout if Connect not enabled)
+    const result = await createConnectCheckoutSession(member.id, planId, successUrl, cancelUrl);
 
     if (!result || !result.success) {
       return apiError(result?.error || { code: 'CHECKOUT_FAILED', message: 'Failed to create checkout session' }, 400);

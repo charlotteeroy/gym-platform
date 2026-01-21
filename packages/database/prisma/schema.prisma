@@ -21,27 +21,39 @@ model Gym {
   address         String?
   timezone        String   @default("UTC")
   currency        String   @default("USD")
-  stripeAccountId String?  @unique
   logoUrl         String?
   settings        Json     @default("{}")
+
+  // Stripe Connect
+  stripeAccountId           String?  @unique
+  stripeAccountStatus       String?  @default("pending") // pending, onboarding, active, restricted
+  stripeChargesEnabled      Boolean  @default(false)
+  stripePayoutsEnabled      Boolean  @default(false)
+  stripePlatformFeePercent  Decimal  @default(2.5) @db.Decimal(5, 2)
+  stripeOnboardingComplete  Boolean  @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relations
-  members         Member[]
-  staff           Staff[]
-  membershipPlans MembershipPlan[]
-  classes         Class[]
-  classSessions   ClassSession[]
-  checkIns        CheckIn[]
-  tags            Tag[]
-  payments        Payment[]
-  invoices        Invoice[]
-  expenses        Expense[]
-  payouts         Payout[]
-  automatedFlows  AutomatedFlow[]
-  campaigns       Campaign[]
+  members              Member[]
+  staff                Staff[]
+  membershipPlans      MembershipPlan[]
+  classes              Class[]
+  classSessions        ClassSession[]
+  checkIns             CheckIn[]
+  tags                 Tag[]
+  payments             Payment[]
+  invoices             Invoice[]
+  expenses             Expense[]
+  payouts              Payout[]
+  automatedFlows       AutomatedFlow[]
+  campaigns            Campaign[]
+  refunds              Refund[]
+  products             Product[]
+  purchases            Purchase[]
+  failedPayments       FailedPaymentAttempt[]
+  payrollPeriods       PayrollPeriod[]
 
   @@index([slug])
 }
@@ -123,13 +135,15 @@ model Member {
   gymId  String
   gym    Gym    @relation(fields: [gymId], references: [id], onDelete: Cascade)
 
-  subscription    Subscription?
-  bookings        Booking[]
-  checkIns        CheckIn[]
-  waitlistEntries WaitlistEntry[]
-  tags            MemberTag[]
-  payments        Payment[]
-  invoices        Invoice[]
+  subscription       Subscription?
+  bookings           Booking[]
+  checkIns           CheckIn[]
+  waitlistEntries    WaitlistEntry[]
+  tags               MemberTag[]
+  payments           Payment[]
+  invoices           Invoice[]
+  purchases          Purchase[]
+  failedPayments     FailedPaymentAttempt[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -174,6 +188,8 @@ model Staff {
 
   instructorClasses Class[] @relation("ClassInstructor")
   expenses          Expense[]
+  refundsProcessed  Refund[]
+  payrollEntries    PayrollEntry[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -245,15 +261,18 @@ model Subscription {
   currentPeriodEnd   DateTime
   cancelledAt        DateTime?
   cancelAtPeriodEnd  Boolean            @default(false)
+  pausedAt           DateTime?
+  resumeAt           DateTime?
 
   // Stripe
   stripeSubscriptionId String? @unique
 
   // Relations
-  memberId String @unique
-  member   Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  planId   String
-  plan     MembershipPlan @relation(fields: [planId], references: [id])
+  memberId       String @unique
+  member         Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  planId         String
+  plan           MembershipPlan @relation(fields: [planId], references: [id])
+  failedPayments FailedPaymentAttempt[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -510,6 +529,7 @@ model Payment {
   invoice   Invoice? @relation(fields: [invoiceId], references: [id])
   gymId     String
   gym       Gym      @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  refunds   Refund[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -781,4 +801,204 @@ model Campaign {
   @@index([type])
   @@index([status])
   @@index([createdAt])
+}
+
+// ============================================
+// REFUNDS
+// ============================================
+
+model Refund {
+  id             String   @id @default(cuid())
+  amount         Decimal  @db.Decimal(10, 2)
+  reason         String?
+  status         RefundStatus @default(PENDING)
+  stripeRefundId String?
+  processedAt    DateTime?
+
+  // Relations
+  gymId          String
+  gym            Gym      @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  paymentId      String
+  payment        Payment  @relation(fields: [paymentId], references: [id])
+  processedById  String?
+  processedBy    Staff?   @relation(fields: [processedById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([gymId])
+  @@index([paymentId])
+  @@index([status])
+}
+
+enum RefundStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+}
+
+// ============================================
+// PRODUCTS (One-time purchases: PT sessions, class packs, merchandise)
+// ============================================
+
+enum ProductType {
+  PT_SESSION
+  CLASS_PACK
+  MERCHANDISE
+  DROP_IN
+  OTHER
+}
+
+model Product {
+  id              String      @id @default(cuid())
+  name            String
+  description     String?
+  priceAmount     Decimal     @db.Decimal(10, 2)
+  type            ProductType
+  isActive        Boolean     @default(true)
+
+  // Stripe
+  stripePriceId   String?
+  stripeProductId String?
+
+  // For class packs
+  classCredits    Int?
+
+  // Relations
+  gymId     String
+  gym       Gym        @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  purchases Purchase[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([gymId])
+  @@index([type])
+  @@index([isActive])
+}
+
+model Purchase {
+  id              String         @id @default(cuid())
+  quantity        Int            @default(1)
+  unitPrice       Decimal        @db.Decimal(10, 2)
+  totalAmount     Decimal        @db.Decimal(10, 2)
+  status          PurchaseStatus @default(PENDING)
+  stripePaymentId String?
+
+  // Relations
+  gymId     String
+  gym       Gym     @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  memberId  String
+  member    Member  @relation(fields: [memberId], references: [id])
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([gymId])
+  @@index([memberId])
+  @@index([status])
+}
+
+enum PurchaseStatus {
+  PENDING
+  COMPLETED
+  REFUNDED
+  CANCELLED
+}
+
+// ============================================
+// FAILED PAYMENT TRACKING (Dunning)
+// ============================================
+
+model FailedPaymentAttempt {
+  id               String              @id @default(cuid())
+  amount           Decimal             @db.Decimal(10, 2)
+  failureCode      String?
+  failureMessage   String?
+  attemptNumber    Int                 @default(1)
+  nextRetryAt      DateTime?
+  status           FailedPaymentStatus @default(PENDING)
+  stripeInvoiceId  String?
+
+  // Relations
+  gymId          String
+  gym            Gym          @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  memberId       String
+  member         Member       @relation(fields: [memberId], references: [id])
+  subscriptionId String
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([gymId])
+  @@index([memberId])
+  @@index([status])
+  @@index([nextRetryAt])
+}
+
+enum FailedPaymentStatus {
+  PENDING
+  RECOVERED
+  FAILED_FINAL
+  WRITTEN_OFF
+}
+
+// ============================================
+// PAYROLL
+// ============================================
+
+model PayrollPeriod {
+  id          String        @id @default(cuid())
+  startDate   DateTime
+  endDate     DateTime
+  status      PayrollStatus @default(DRAFT)
+  totalAmount Decimal       @db.Decimal(10, 2) @default(0)
+  paidAt      DateTime?
+
+  // Relations
+  gymId   String
+  gym     Gym            @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  entries PayrollEntry[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([gymId])
+  @@index([status])
+  @@index([startDate, endDate])
+}
+
+enum PayrollStatus {
+  DRAFT
+  APPROVED
+  PROCESSING
+  PAID
+  FAILED
+}
+
+model PayrollEntry {
+  id                String    @id @default(cuid())
+  baseAmount        Decimal   @db.Decimal(10, 2) @default(0)
+  commissionsAmount Decimal   @db.Decimal(10, 2) @default(0)
+  bonusAmount       Decimal   @db.Decimal(10, 2) @default(0)
+  deductionsAmount  Decimal   @db.Decimal(10, 2) @default(0)
+  totalAmount       Decimal   @db.Decimal(10, 2)
+  stripeTransferId  String?
+  paidAt            DateTime?
+  notes             String?
+
+  // Relations
+  payrollPeriodId String
+  payrollPeriod   PayrollPeriod @relation(fields: [payrollPeriodId], references: [id], onDelete: Cascade)
+  staffId         String
+  staff           Staff         @relation(fields: [staffId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([payrollPeriodId])
+  @@index([staffId])
 }

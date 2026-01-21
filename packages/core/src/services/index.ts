@@ -122,6 +122,44 @@ export {
   createCheckoutSession,
   createBillingPortalSession,
   handleStripeWebhook,
+  // Connect
+  createConnectAccount,
+  createOnboardingLink,
+  getConnectAccountStatus,
+  createConnectCheckoutSession,
+  handleAccountUpdated,
+  // Refunds
+  createRefund,
+  // Subscription management (Stripe-side)
+  cancelSubscription as cancelStripeSubscription,
+  pauseSubscription as pauseStripeSubscription,
+  resumeSubscription as resumeStripeSubscription,
+  undoCancellation,
+  // Payment methods
+  createSetupIntent,
+  listPaymentMethods,
+  deletePaymentMethod,
+  setDefaultPaymentMethod,
+  // Invoices
+  listMemberInvoices,
+  // Transfers
+  createTransfer,
+  // Dunning
+  recordFailedPayment,
+  handleInvoicePaymentFailed,
+  retryFailedPayment,
+  writeOffFailedPayment,
+  getFailedPayments,
+  // Payroll
+  createPayrollPeriod,
+  getPayrollPeriods,
+  getPayrollPeriod,
+  addPayrollEntry,
+  updatePayrollEntry,
+  deletePayrollEntry,
+  approvePayroll,
+  processPayroll,
+  deletePayrollPeriod,
 } from './stripe.service';
 
 // Analytics service
@@ -167,3 +205,13 @@ export {
   getRevenueForecasts,
   getForecastData,
 } from './forecast.service';
+
+// Reporting service
+export {
+  type PnLReport,
+  type CashFlowReport,
+  type RevenueBreakdown,
+  getPnLReport,
+  getCashFlowReport,
+  getRevenueBreakdown,
+} from './reporting.service';

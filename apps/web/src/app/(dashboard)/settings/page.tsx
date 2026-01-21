@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
+import Link from 'next/link';
 
 export default function SettingsPage() {
   const { toast } = useToast();
@@ -127,8 +128,8 @@ export default function SettingsPage() {
                   Not connected
                 </p>
               </div>
-              <Button variant="outline" className="min-h-[44px] self-start sm:self-auto">
-                Connect Stripe
+              <Button variant="outline" className="min-h-[44px] self-start sm:self-auto" asChild>
+                <Link href="/admin/settings/stripe">Connect Stripe</Link>
               </Button>
             </div>
           </CardContent>
