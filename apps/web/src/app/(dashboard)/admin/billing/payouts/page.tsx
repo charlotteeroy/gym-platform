@@ -577,7 +577,7 @@ export default function PayoutsPage() {
 
         {/* Category Tabs */}
         <div className="bg-white rounded-2xl shadow-sm p-2">
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             {PAYOUT_CATEGORIES.map((cat) => {
               const categoryPayouts = payouts.filter(p => p.category === cat.value);
               const categoryTotal = categoryPayouts.reduce((sum, p) => sum + Number(p.amount), 0);
@@ -587,28 +587,33 @@ export default function PayoutsPage() {
                 <button
                   key={cat.value}
                   onClick={() => setCategoryTab(cat.value)}
-                  className={`relative p-4 rounded-xl text-left transition-all ${
+                  className={`relative p-3 sm:p-4 rounded-xl text-left transition-all ${
                     categoryTab === cat.value
                       ? 'bg-slate-900 text-white'
                       : 'bg-slate-50 hover:bg-slate-100 text-slate-700'
                   }`}
                 >
-                  <div className="flex items-center gap-3 mb-2">
-                    {cat.value === 'freelancers' && (
-                      <Users className={`w-5 h-5 ${categoryTab === cat.value ? 'text-white' : 'text-indigo-600'}`} />
-                    )}
-                    {cat.value === 'refunds' && (
-                      <RotateCcw className={`w-5 h-5 ${categoryTab === cat.value ? 'text-white' : 'text-amber-600'}`} />
-                    )}
-                    {cat.value === 'commissions' && (
-                      <Trophy className={`w-5 h-5 ${categoryTab === cat.value ? 'text-white' : 'text-emerald-600'}`} />
-                    )}
-                    <span className="font-semibold">{cat.label}</span>
+                  <div className="flex items-center justify-between sm:justify-start gap-3 sm:mb-2">
+                    <div className="flex items-center gap-2 sm:gap-3">
+                      {cat.value === 'freelancers' && (
+                        <Users className={`w-5 h-5 ${categoryTab === cat.value ? 'text-white' : 'text-indigo-600'}`} />
+                      )}
+                      {cat.value === 'refunds' && (
+                        <RotateCcw className={`w-5 h-5 ${categoryTab === cat.value ? 'text-white' : 'text-amber-600'}`} />
+                      )}
+                      {cat.value === 'commissions' && (
+                        <Trophy className={`w-5 h-5 ${categoryTab === cat.value ? 'text-white' : 'text-emerald-600'}`} />
+                      )}
+                      <span className="font-semibold text-sm sm:text-base">{cat.label}</span>
+                    </div>
+                    <span className={`sm:hidden text-base font-bold ${categoryTab === cat.value ? 'text-white' : 'text-slate-900'}`}>
+                      {formatCurrency(categoryTotal)}
+                    </span>
                   </div>
-                  <p className={`text-xs mb-2 ${categoryTab === cat.value ? 'text-slate-300' : 'text-slate-500'}`}>
+                  <p className={`hidden sm:block text-xs mb-2 ${categoryTab === cat.value ? 'text-slate-300' : 'text-slate-500'}`}>
                     {cat.description}
                   </p>
-                  <div className="flex items-center justify-between">
+                  <div className="hidden sm:flex items-center justify-between">
                     <span className={`text-lg font-bold ${categoryTab === cat.value ? 'text-white' : 'text-slate-900'}`}>
                       {formatCurrency(categoryTotal)}
                     </span>
@@ -628,38 +633,54 @@ export default function PayoutsPage() {
 
         {/* View Toggle and Filters */}
         <div className="bg-white rounded-2xl shadow-sm p-4">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex gap-2">
-              <button
-                onClick={() => setViewMode('payouts')}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                  viewMode === 'payouts'
-                    ? 'bg-slate-900 text-white'
-                    : 'text-slate-600 hover:bg-slate-100'
-                }`}
-              >
-                <Wallet className="w-4 h-4" />
-                Payouts
-              </button>
-              <button
-                onClick={() => setViewMode('trainers')}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                  viewMode === 'trainers'
-                    ? 'bg-slate-900 text-white'
-                    : 'text-slate-600 hover:bg-slate-100'
-                }`}
-              >
-                <User className="w-4 h-4" />
-                Trainer Splits
-              </button>
+          <div className="flex flex-col gap-4">
+            {/* Top row: View toggle and action buttons */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setViewMode('payouts')}
+                  className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                    viewMode === 'payouts'
+                      ? 'bg-slate-900 text-white'
+                      : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  <Wallet className="w-4 h-4" />
+                  Payouts
+                </button>
+                <button
+                  onClick={() => setViewMode('trainers')}
+                  className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                    viewMode === 'trainers'
+                      ? 'bg-slate-900 text-white'
+                      : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  <User className="w-4 h-4" />
+                  Trainer Splits
+                </button>
+              </div>
+
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setShowSettingsModal(true)} className="rounded-xl flex-1 sm:flex-none">
+                  <Settings className="w-4 h-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Settings</span>
+                </Button>
+                <Button onClick={() => openModal()} className="bg-slate-900 hover:bg-slate-800 rounded-xl flex-1 sm:flex-none">
+                  <Plus className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Create Payout</span>
+                  <span className="sm:hidden">Create</span>
+                </Button>
+              </div>
             </div>
 
+            {/* Bottom row: Filters (only in payouts view) */}
             {viewMode === 'payouts' && (
-              <div className="flex-1 flex gap-3 flex-wrap">
+              <div className="flex flex-wrap gap-2">
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
-                  className="h-10 px-3 rounded-xl border border-slate-200 bg-white text-sm min-w-[130px]"
+                  className="h-10 px-3 rounded-xl border border-slate-200 bg-white text-sm flex-1 sm:flex-none sm:min-w-[130px]"
                 >
                   <option value="all">All Status</option>
                   {PAYOUT_STATUSES.map(s => (
@@ -670,7 +691,7 @@ export default function PayoutsPage() {
                 <select
                   value={typeFilter}
                   onChange={(e) => setTypeFilter(e.target.value)}
-                  className="h-10 px-3 rounded-xl border border-slate-200 bg-white text-sm min-w-[130px]"
+                  className="h-10 px-3 rounded-xl border border-slate-200 bg-white text-sm flex-1 sm:flex-none sm:min-w-[130px]"
                 >
                   <option value="all">All Recipients</option>
                   <option value="gym">Gym</option>
@@ -679,10 +700,11 @@ export default function PayoutsPage() {
 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="rounded-xl">
-                      <ArrowUpDown className="w-4 h-4 mr-2" />
-                      {SORT_OPTIONS.find(s => s.value === sortBy)?.label}
-                      <ChevronDown className="w-4 h-4 ml-2" />
+                    <Button variant="outline" className="rounded-xl flex-1 sm:flex-none">
+                      <ArrowUpDown className="w-4 h-4 sm:mr-2" />
+                      <span className="hidden sm:inline">{SORT_OPTIONS.find(s => s.value === sortBy)?.label}</span>
+                      <span className="sm:hidden">Sort</span>
+                      <ChevronDown className="w-4 h-4 ml-1 sm:ml-2" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
@@ -699,23 +721,12 @@ export default function PayoutsPage() {
                   </DropdownMenuContent>
                 </DropdownMenu>
 
-                <Button variant="outline" onClick={exportPayouts} className="rounded-xl">
-                  <Download className="w-4 h-4 mr-2" />
-                  Export
+                <Button variant="outline" onClick={exportPayouts} className="rounded-xl flex-1 sm:flex-none">
+                  <Download className="w-4 h-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Export</span>
                 </Button>
               </div>
             )}
-
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setShowSettingsModal(true)} className="rounded-xl">
-                <Settings className="w-4 h-4 mr-2" />
-                Settings
-              </Button>
-              <Button onClick={() => openModal()} className="bg-slate-900 hover:bg-slate-800 rounded-xl">
-                <Plus className="mr-2 h-4 w-4" />
-                Create Payout
-              </Button>
-            </div>
           </div>
         </div>
 
@@ -1326,19 +1337,19 @@ export default function PayoutsPage() {
 
               <div className="space-y-2">
                 <Label>Category</Label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="flex flex-wrap gap-2">
                   {PAYOUT_CATEGORIES.map((cat) => (
                     <button
                       key={cat.value}
                       type="button"
                       onClick={() => setPayoutForm({ ...payoutForm, category: cat.value })}
-                      className={`p-3 rounded-xl border-2 text-left transition-all ${
+                      className={`flex-1 min-w-[80px] p-2.5 rounded-xl border-2 text-center transition-all ${
                         payoutForm.category === cat.value
                           ? 'border-slate-900 bg-slate-50'
                           : 'border-slate-200 hover:border-slate-300'
                       }`}
                     >
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center justify-center gap-1.5">
                         {cat.value === 'freelancers' && <Users className="w-4 h-4 text-indigo-600" />}
                         {cat.value === 'refunds' && <RotateCcw className="w-4 h-4 text-amber-600" />}
                         {cat.value === 'commissions' && <Trophy className="w-4 h-4 text-emerald-600" />}
@@ -1353,17 +1364,17 @@ export default function PayoutsPage() {
 
               <div className="space-y-2">
                 <Label>Payout Type</Label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="flex flex-wrap gap-2">
                   {[
                     { value: 'one_time', label: 'One-time', desc: 'Single payout' },
-                    { value: 'recurring', label: 'Recurring', desc: 'Repeats on schedule' },
-                    { value: 'permanent', label: 'Permanent', desc: 'Ongoing until cancelled' },
+                    { value: 'recurring', label: 'Recurring', desc: 'Repeats' },
+                    { value: 'permanent', label: 'Permanent', desc: 'Ongoing' },
                   ].map((type) => (
                     <button
                       key={type.value}
                       type="button"
                       onClick={() => setPayoutForm({ ...payoutForm, payoutType: type.value as typeof payoutForm.payoutType })}
-                      className={`p-3 rounded-xl border-2 text-left transition-all ${
+                      className={`flex-1 min-w-[90px] p-2.5 rounded-xl border-2 text-center transition-all ${
                         payoutForm.payoutType === type.value
                           ? 'border-slate-900 bg-slate-50'
                           : 'border-slate-200 hover:border-slate-300'
