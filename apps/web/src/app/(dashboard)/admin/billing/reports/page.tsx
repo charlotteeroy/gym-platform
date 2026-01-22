@@ -168,7 +168,7 @@ export default function ReportsPage() {
               </p>
             </div>
             <Link href="/admin/billing">
-              <Button variant="outline">Back to Billing</Button>
+              <Button variant="outline">Back to Accounting</Button>
             </Link>
           </div>
 

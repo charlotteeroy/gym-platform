@@ -82,7 +82,7 @@ const navigation: NavigationItem[] = [
     ],
   },
   {
-    name: 'Billing',
+    name: 'Accounting',
     icon: DollarSign,
     children: [
       { name: 'Overview', href: '/admin/billing', icon: PieChart },

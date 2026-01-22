@@ -842,7 +842,7 @@ All API endpoints return a consistent JSON structure:
   /policies             # Gym policies
 /admin/plans            # Membership plans CRUD
 /admin/staff            # Staff management
-/admin/billing          # Billing dashboard with revenue forecasting
+/admin/billing          # Accounting dashboard with revenue forecasting
   /payments             # Payment history
   /invoices             # Invoice management
   /expenses             # Expense tracking

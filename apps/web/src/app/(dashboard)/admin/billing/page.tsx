@@ -358,7 +358,7 @@ export default function BillingOverviewPage() {
   if (isLoading) {
     return (
       <>
-        <Header title="Billing" description="Financial overview and management" />
+        <Header title="Accounting" description="Financial overview and management" />
         <div className="flex items-center justify-center py-20">
           <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
         </div>
@@ -368,7 +368,7 @@ export default function BillingOverviewPage() {
 
   return (
     <>
-      <Header title="Billing" description="Financial overview and management" />
+      <Header title="Accounting" description="Financial overview and management" />
 
       <div className="p-4 md:p-6 space-y-6">
         {/* Primary Metrics */}

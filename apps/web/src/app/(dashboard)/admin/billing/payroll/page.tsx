@@ -391,7 +391,7 @@ export default function PayrollPage() {
             </div>
             <div className="flex gap-2">
               <Link href="/admin/billing">
-                <Button variant="outline">Back to Billing</Button>
+                <Button variant="outline">Back to Accounting</Button>
               </Link>
               <Button onClick={() => setShowCreateModal(true)}>
                 <Plus className="mr-2 h-4 w-4" />
