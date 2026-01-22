@@ -33,6 +33,7 @@ import {
   Check,
   Phone,
   List,
+  Plus,
 } from 'lucide-react';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
@@ -44,6 +45,15 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 
 interface Payment {
   id: string;
@@ -82,6 +92,13 @@ interface OverdueInvoice {
     email: string;
     phone?: string;
   };
+}
+
+interface SimpleMember {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
 }
 
 const PAYMENT_METHODS = [
@@ -165,6 +182,21 @@ export default function PaymentsPage() {
     thisMonthRevenue: 0,
     pendingAmount: 0,
     totalPayments: 0,
+  });
+
+  // New payment modal state
+  const [showNewPaymentModal, setShowNewPaymentModal] = useState(false);
+  const [members, setMembers] = useState<SimpleMember[]>([]);
+  const [membersLoading, setMembersLoading] = useState(false);
+  const [createPaymentLoading, setCreatePaymentLoading] = useState(false);
+  const [customerType, setCustomerType] = useState<'member' | 'external'>('member');
+  const [newPayment, setNewPayment] = useState({
+    amount: '',
+    method: 'CARD' as 'CARD' | 'CASH' | 'BANK_TRANSFER' | 'OTHER',
+    description: '',
+    memberId: '',
+    externalName: '',
+    externalEmail: '',
   });
 
   useEffect(() => {
@@ -654,6 +686,87 @@ export default function PaymentsPage() {
   const hasActiveFilters = searchQuery || statusFilter !== 'all' || methodFilter !== 'all' ||
                            typeFilter !== 'all' || startDate || endDate || minAmount || maxAmount;
 
+  const fetchMembers = async () => {
+    if (members.length > 0) return; // Already loaded
+    setMembersLoading(true);
+    try {
+      const response = await fetch('/api/members');
+      const data = await response.json();
+      if (data.success && data.data?.items) {
+        setMembers(data.data.items.map((m: SimpleMember) => ({
+          id: m.id,
+          firstName: m.firstName,
+          lastName: m.lastName,
+          email: m.email,
+        })));
+      }
+    } catch (error) {
+      console.error('Failed to fetch members:', error);
+    } finally {
+      setMembersLoading(false);
+    }
+  };
+
+  const handleOpenNewPaymentModal = () => {
+    setShowNewPaymentModal(true);
+    setCustomerType('member');
+    fetchMembers();
+  };
+
+  const handleCreatePayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPayment.amount || parseFloat(newPayment.amount) <= 0) {
+      alert('Please enter a valid amount');
+      return;
+    }
+
+    // For external customers, require at least a name
+    if (customerType === 'external' && !newPayment.externalName.trim()) {
+      alert('Please enter the customer name');
+      return;
+    }
+
+    setCreatePaymentLoading(true);
+    try {
+      // Build description with external customer info if applicable
+      let description = newPayment.description;
+      if (customerType === 'external' && newPayment.externalName) {
+        const externalInfo = newPayment.externalEmail
+          ? `${newPayment.externalName} (${newPayment.externalEmail})`
+          : newPayment.externalName;
+        description = description
+          ? `[External: ${externalInfo}] ${description}`
+          : `[External: ${externalInfo}]`;
+      }
+
+      const response = await fetch('/api/admin/payments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: parseFloat(newPayment.amount),
+          method: newPayment.method,
+          description: description || undefined,
+          memberId: customerType === 'member' ? (newPayment.memberId || undefined) : undefined,
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setShowNewPaymentModal(false);
+        setNewPayment({ amount: '', method: 'CARD', description: '', memberId: '', externalName: '', externalEmail: '' });
+        setCustomerType('member');
+        fetchAllData();
+      } else {
+        alert(data.error?.message || 'Failed to create payment');
+      }
+    } catch (error) {
+      console.error('Failed to create payment:', error);
+      alert('Failed to create payment');
+    } finally {
+      setCreatePaymentLoading(false);
+    }
+  };
+
   const activeFilterCount = [
     searchQuery,
     statusFilter !== 'all',
@@ -860,6 +973,14 @@ export default function PaymentsPage() {
                       </div>
                     )}
                   </div>
+
+                  <Button
+                    onClick={handleOpenNewPaymentModal}
+                    className="bg-slate-900 hover:bg-slate-800 rounded-xl"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    New Payment
+                  </Button>
                 </div>
               </div>
 
@@ -1743,6 +1864,180 @@ export default function PaymentsPage() {
           </>
         )}
       </div>
+
+      {/* New Payment Modal */}
+      <Dialog open={showNewPaymentModal} onOpenChange={setShowNewPaymentModal}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Record New Payment</DialogTitle>
+            <DialogDescription>
+              Manually record a payment received from a member.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleCreatePayment} className="space-y-4">
+            {/* Customer Type Toggle */}
+            <div className="space-y-2">
+              <Label>Customer Type</Label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCustomerType('member')}
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                    customerType === 'member'
+                      ? 'bg-slate-900 text-white'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  <User className="w-4 h-4" />
+                  Gym Member
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCustomerType('external')}
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                    customerType === 'external'
+                      ? 'bg-slate-900 text-white'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  External / Walk-in
+                </button>
+              </div>
+            </div>
+
+            {/* Member Selection (only shown for member type) */}
+            {customerType === 'member' && (
+              <div className="space-y-2">
+                <Label htmlFor="member">Member (Optional)</Label>
+                {membersLoading ? (
+                  <div className="flex items-center gap-2 h-10 px-3 text-sm text-slate-500">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Loading members...
+                  </div>
+                ) : (
+                  <select
+                    id="member"
+                    value={newPayment.memberId}
+                    onChange={(e) => setNewPayment({ ...newPayment, memberId: e.target.value })}
+                    className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-sm"
+                  >
+                    <option value="">Select a member (optional)</option>
+                    {members.map((member) => (
+                      <option key={member.id} value={member.id}>
+                        {member.firstName} {member.lastName} ({member.email})
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            )}
+
+            {/* External Customer Fields (only shown for external type) */}
+            {customerType === 'external' && (
+              <div className="space-y-4 p-4 bg-slate-50 rounded-xl">
+                <div className="space-y-2">
+                  <Label htmlFor="externalName">Customer Name *</Label>
+                  <Input
+                    id="externalName"
+                    placeholder="John Doe"
+                    value={newPayment.externalName}
+                    onChange={(e) => setNewPayment({ ...newPayment, externalName: e.target.value })}
+                    className="rounded-xl"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="externalEmail">Customer Email (Optional)</Label>
+                  <Input
+                    id="externalEmail"
+                    type="email"
+                    placeholder="john@example.com"
+                    value={newPayment.externalEmail}
+                    onChange={(e) => setNewPayment({ ...newPayment, externalEmail: e.target.value })}
+                    className="rounded-xl"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label htmlFor="amount">Amount *</Label>
+              <div className="relative">
+                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Input
+                  id="amount"
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  placeholder="0.00"
+                  value={newPayment.amount}
+                  onChange={(e) => setNewPayment({ ...newPayment, amount: e.target.value })}
+                  className="pl-9 rounded-xl"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="method">Payment Method *</Label>
+              <select
+                id="method"
+                value={newPayment.method}
+                onChange={(e) => setNewPayment({ ...newPayment, method: e.target.value as 'CARD' | 'CASH' | 'BANK_TRANSFER' | 'OTHER' })}
+                className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-sm"
+                required
+              >
+                {PAYMENT_METHODS.map((method) => (
+                  <option key={method.value} value={method.value}>
+                    {method.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="description">Description (Optional)</Label>
+              <Input
+                id="description"
+                placeholder="e.g., Monthly membership, Drop-in class, PT session..."
+                value={newPayment.description}
+                onChange={(e) => setNewPayment({ ...newPayment, description: e.target.value })}
+                className="rounded-xl"
+              />
+            </div>
+
+            <DialogFooter className="pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowNewPaymentModal(false)}
+                className="rounded-xl"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={createPaymentLoading || !newPayment.amount}
+                className="bg-slate-900 hover:bg-slate-800 rounded-xl"
+              >
+                {createPaymentLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Create Payment
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

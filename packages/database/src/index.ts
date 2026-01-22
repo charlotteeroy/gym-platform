@@ -19,4 +19,7 @@ export type {
   Booking,
   WaitlistEntry,
   CheckIn,
+  TaxConfiguration,
+  BusinessInfo,
+  CurrencySettings,
 } from '@prisma/client';

@@ -73,6 +73,11 @@ model Gym {
   policies             GymPolicy[]
   opportunities        Opportunity[]
 
+  // Canadian Accounting Compliance
+  taxConfiguration     TaxConfiguration?
+  businessInfo         BusinessInfo?
+  currencySettings     CurrencySettings?
+
   @@index([slug])
 }
 
@@ -577,6 +582,22 @@ model Invoice {
   total         Decimal       @db.Decimal(10, 2)
   notes         String?
 
+  // Canadian Tax Breakdown
+  gstAmount     Decimal       @db.Decimal(10, 2) @default(0)
+  pstAmount     Decimal       @db.Decimal(10, 2) @default(0)
+  hstAmount     Decimal       @db.Decimal(10, 2) @default(0)
+  qstAmount     Decimal       @db.Decimal(10, 2) @default(0)
+  taxTotal      Decimal       @db.Decimal(10, 2) @default(0)
+
+  // Currency
+  currency      String        @default("CAD")
+  exchangeRate  Decimal?      @db.Decimal(10, 6) // Rate to base currency
+
+  // Tax Info Snapshot (for audit)
+  taxProvince   String?
+  taxType       String?       // HST, GST_PST, GST_QST, GST_ONLY
+  gstHstNumber  String?       // Snapshot at invoice time
+
   // Relations
   memberId String
   member   Member        @relation(fields: [memberId], references: [id])
@@ -616,6 +637,16 @@ model Expense {
   vendor      String?
   date        DateTime
   receiptUrl  String?
+
+  // Input Tax Credits (ITC) - Canadian Tax Recovery
+  gstItc      Decimal?        @db.Decimal(10, 2) // GST paid (claimable)
+  pstPaid     Decimal?        @db.Decimal(10, 2) // PST paid (not claimable)
+  hstItc      Decimal?        @db.Decimal(10, 2) // HST paid (claimable)
+  qstItc      Decimal?        @db.Decimal(10, 2) // QST paid (claimable in QC)
+
+  // Currency
+  currency    String          @default("CAD")
+  exchangeRate Decimal?       @db.Decimal(10, 6)
 
   // Relations
   staffId String?
@@ -1071,6 +1102,90 @@ model GymPolicy {
 
   @@index([gymId])
   @@index([type])
+}
+
+// ============================================
+// CANADIAN ACCOUNTING COMPLIANCE
+// ============================================
+
+model TaxConfiguration {
+  id              String   @id @default(cuid())
+  gymId           String   @unique
+  gym             Gym      @relation(fields: [gymId], references: [id], onDelete: Cascade)
+
+  // Tax Registration
+  gstHstNumber    String?  // GST/HST Registration Number (e.g., 123456789RT0001)
+  pstNumber       String?  // Provincial Sales Tax Number (BC, SK, MB)
+  qstNumber       String?  // Quebec Sales Tax Number
+
+  // Tax Rates
+  province        String   // Province code (ON, BC, AB, QC, etc.)
+  taxType         String   // HST, GST_PST, GST_QST, GST_ONLY
+  gstRate         Decimal  @db.Decimal(5, 4) @default(0.05)
+  pstRate         Decimal  @db.Decimal(5, 4) @default(0)
+  hstRate         Decimal  @db.Decimal(5, 4) @default(0)
+  qstRate         Decimal  @db.Decimal(5, 4) @default(0)
+
+  // Small Supplier Status
+  isSmallSupplier Boolean  @default(false) // Under $30K annual revenue
+
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([gymId])
+}
+
+model BusinessInfo {
+  id                      String   @id @default(cuid())
+  gymId                   String   @unique
+  gym                     Gym      @relation(fields: [gymId], references: [id], onDelete: Cascade)
+
+  // Legal Entity
+  legalName               String   // Legal business name
+  businessNumber          String?  // CRA Business Number (9 digits)
+  corporationNumber       String?  // Federal/Provincial corp number
+  businessType            String   // SOLE_PROPRIETOR, PARTNERSHIP, CORPORATION
+
+  // Registered Address (for invoices)
+  streetAddress           String
+  city                    String
+  province                String
+  postalCode              String
+  country                 String   @default("CA")
+
+  // Contact for Business
+  businessPhone           String?
+  businessEmail           String?
+
+  // Provincial Registrations
+  provincialRegistrations Json?    // { "ON": "12345", "BC": "67890" }
+
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  @@index([gymId])
+}
+
+model CurrencySettings {
+  id                String    @id @default(cuid())
+  gymId             String    @unique
+  gym               Gym       @relation(fields: [gymId], references: [id], onDelete: Cascade)
+
+  baseCurrency      String    @default("CAD") // Primary currency
+  enabledCurrencies String[]  @default(["CAD"]) // ["CAD", "USD", "EUR"]
+
+  // Manual Exchange Rates (if not using live rates)
+  usdToCad          Decimal?  @db.Decimal(10, 6)
+  eurToCad          Decimal?  @db.Decimal(10, 6)
+
+  useAutoRates      Boolean   @default(false) // Use live exchange rates
+  lastRateUpdate    DateTime?
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([gymId])
 }
 
 // ============================================

@@ -36,6 +36,8 @@ import {
   Palette,
   ScrollText,
   Tag,
+  Coins,
+  Calculator,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -105,6 +107,7 @@ const navigation: NavigationItem[] = [
         ],
       },
       { name: 'Payouts', href: '/admin/billing/payouts', icon: Wallet },
+      { name: 'Tax Report', href: '/admin/billing/tax-report', icon: Calculator },
     ],
   },
   {
@@ -117,6 +120,15 @@ const navigation: NavigationItem[] = [
       { name: 'Policies', href: '/admin/gym/policies', icon: ScrollText },
       { name: 'Plans', href: '/admin/plans', icon: Tag },
       { name: 'Staff', href: '/admin/staff', icon: UserCog },
+      {
+        name: 'Settings',
+        icon: Settings,
+        children: [
+          { name: 'Tax Configuration', href: '/admin/settings/tax', icon: Receipt },
+          { name: 'Business Info', href: '/admin/settings/business', icon: Building2 },
+          { name: 'Currency', href: '/admin/settings/currency', icon: Coins },
+        ],
+      },
     ],
   },
   { name: 'Settings', href: '/settings', icon: Settings },

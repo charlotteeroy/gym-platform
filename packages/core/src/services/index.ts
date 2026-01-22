@@ -237,3 +237,44 @@ export {
   getOpportunitySummary,
   expireStaleOpportunities,
 } from './opportunity.service';
+
+// Tax service (Canadian Accounting Compliance)
+export {
+  type ProvinceCode,
+  type TaxType,
+  type TaxRates,
+  type TaxBreakdown,
+  type TaxReport,
+  CANADIAN_PROVINCES,
+  getTaxRatesByProvince,
+  getAllProvinces,
+  validateGstHstNumber,
+  validateQstNumber,
+  getTaxConfig,
+  upsertTaxConfig,
+  calculateTax,
+  calculateTaxFromConfig,
+  generateTaxReport,
+  getBusinessInfo,
+  upsertBusinessInfo,
+  formatGstHstNumber,
+  getInvoiceTaxInfo,
+} from './tax.service';
+
+// Currency service
+export {
+  type CurrencyCode,
+  type ExchangeRates,
+  type CurrencyConversion,
+  SUPPORTED_CURRENCIES,
+  getCurrencySettings,
+  upsertCurrencySettings,
+  fetchLiveRates,
+  getExchangeRates,
+  convertCurrency,
+  updateManualRates,
+  formatCurrency,
+  getCurrencySymbol,
+  getAllCurrencies,
+  isValidCurrency,
+} from './currency.service';
