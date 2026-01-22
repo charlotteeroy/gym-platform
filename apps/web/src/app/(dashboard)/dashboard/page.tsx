@@ -3,6 +3,7 @@ import { prisma } from '@gym/database';
 import { getGymHealth, getAlerts, getAtRiskMembers, type Alert, type GymHealthScore } from '@gym/core';
 import { redirect } from 'next/navigation';
 import { Header } from '@/components/layout/header';
+import { TopOpportunities } from '@/components/dashboard/opportunities-widget';
 import Link from 'next/link';
 
 async function getDashboardData() {
@@ -377,6 +378,9 @@ export default async function DashboardPage() {
             </div>
           </div>
         )}
+
+        {/* Top Opportunities */}
+        <TopOpportunities gymId={gym.id} />
 
         {/* Recent Activity */}
         <RecentActivity gymId={gym.id} />

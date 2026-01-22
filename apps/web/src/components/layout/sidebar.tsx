@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
+import { useGymTheme } from '@/components/providers/gym-theme-provider';
 import {
   LayoutDashboard,
   Users,
@@ -31,6 +32,10 @@ import {
   Wrench,
   UserCheck,
   Package,
+  Clock,
+  Palette,
+  ScrollText,
+  Tag,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -107,6 +112,10 @@ const navigation: NavigationItem[] = [
     icon: Shield,
     children: [
       { name: 'Gym Profile', href: '/admin/gym', icon: Building2 },
+      { name: 'Opening Hours', href: '/admin/gym/hours', icon: Clock },
+      { name: 'Branding', href: '/admin/gym/branding', icon: Palette },
+      { name: 'Policies', href: '/admin/gym/policies', icon: ScrollText },
+      { name: 'Plans', href: '/admin/plans', icon: Tag },
       { name: 'Staff', href: '/admin/staff', icon: UserCog },
     ],
   },
@@ -118,6 +127,9 @@ export function Sidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [expandedSections, setExpandedSections] = useState<string[]>(['Business']);
   const [isMobile, setIsMobile] = useState(false);
+
+  // Get gym branding
+  const { settings: gymSettings } = useGymTheme();
 
   // Detect screen size with JavaScript
   useEffect(() => {
@@ -331,10 +343,14 @@ export function Sidebar() {
   const SidebarContent = () => (
     <>
       <div className="flex h-16 items-center gap-3 px-5 border-b border-slate-200/60" style={{ display: 'flex', height: '64px', alignItems: 'center', gap: '12px', padding: '0 20px', borderBottom: '1px solid #e2e8f0' }}>
-        <div className="w-9 h-9 rounded-xl bg-slate-900 flex items-center justify-center" style={{ width: '36px', height: '36px', borderRadius: '12px', backgroundColor: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Dumbbell className="h-5 w-5 text-white" />
+        <div className="w-9 h-9 rounded-xl bg-slate-900 flex items-center justify-center overflow-hidden" style={{ width: '36px', height: '36px', borderRadius: '12px', backgroundColor: gymSettings.logoUrl ? 'transparent' : '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {gymSettings.logoUrl ? (
+            <img src={gymSettings.logoUrl} alt={gymSettings.name} className="w-full h-full object-cover" />
+          ) : (
+            <Dumbbell className="h-5 w-5 text-white" />
+          )}
         </div>
-        <span className="font-bold text-lg text-slate-900 tracking-tight" style={{ fontWeight: 700, fontSize: '18px', color: '#0f172a' }}>GymFlow</span>
+        <span className="font-bold text-lg text-slate-900 tracking-tight truncate" style={{ fontWeight: 700, fontSize: '18px', color: '#0f172a' }}>{gymSettings.name}</span>
       </div>
 
       <nav className="flex-1 space-y-1 p-4 overflow-y-auto" style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1, padding: '16px' }}>
@@ -370,10 +386,14 @@ export function Sidebar() {
           style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 40, display: 'flex', height: '56px', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #e2e8f0', backgroundColor: 'rgba(255,255,255,0.8)', padding: '0 16px' }}
         >
           <div className="flex items-center gap-2.5" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center" style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Dumbbell className="h-4 w-4 text-white" />
+            <div className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center overflow-hidden" style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: gymSettings.logoUrl ? 'transparent' : '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {gymSettings.logoUrl ? (
+                <img src={gymSettings.logoUrl} alt={gymSettings.name} className="w-full h-full object-cover" />
+              ) : (
+                <Dumbbell className="h-4 w-4 text-white" />
+              )}
             </div>
-            <span className="font-bold text-base text-slate-900 tracking-tight" style={{ fontWeight: 700, fontSize: '16px', color: '#0f172a' }}>GymFlow</span>
+            <span className="font-bold text-base text-slate-900 tracking-tight truncate" style={{ fontWeight: 700, fontSize: '16px', color: '#0f172a' }}>{gymSettings.name}</span>
           </div>
           <Button
             variant="ghost"

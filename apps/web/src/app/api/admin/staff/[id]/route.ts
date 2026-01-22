@@ -12,6 +12,13 @@ const updateStaffSchema = z.object({
   hireDate: z.string().optional(),
   hourlyRate: z.number().min(0).optional().nullable(),
   isActive: z.boolean().optional(),
+  // Profile fields
+  bio: z.string().max(2000).optional().nullable(),
+  specialties: z.array(z.string()).optional(),
+  certifications: z.array(z.string()).optional(),
+  instagramUrl: z.string().max(100).optional().nullable(),
+  linkedinUrl: z.string().url().optional().nullable(),
+  isPublicProfile: z.boolean().optional(),
 });
 
 // GET /api/admin/staff/[id] - Get staff member details
@@ -53,6 +60,12 @@ export async function GET(
         hireDate: true,
         hourlyRate: true,
         isActive: true,
+        bio: true,
+        specialties: true,
+        certifications: true,
+        instagramUrl: true,
+        linkedinUrl: true,
+        isPublicProfile: true,
         createdAt: true,
         updatedAt: true,
         instructorClasses: {
@@ -164,6 +177,12 @@ export async function PATCH(
         hireDate: true,
         hourlyRate: true,
         isActive: true,
+        bio: true,
+        specialties: true,
+        certifications: true,
+        instagramUrl: true,
+        linkedinUrl: true,
+        isPublicProfile: true,
         createdAt: true,
         updatedAt: true,
       },

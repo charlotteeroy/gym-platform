@@ -24,6 +24,21 @@ model Gym {
   logoUrl         String?
   settings        Json     @default("{}")
 
+  // Branding
+  tagline           String?
+  description       String?     @db.Text
+  coverImageUrl     String?
+
+  // Theme colors
+  primaryColor      String?     @default("#6366f1")
+  secondaryColor    String?     @default("#f1f5f9")
+  accentColor       String?     @default("#10b981")
+
+  // Social links
+  websiteUrl        String?
+  facebookUrl       String?
+  instagramUrl      String?
+
   // Stripe Connect
   stripeAccountId           String?  @unique
   stripeAccountStatus       String?  @default("pending") // pending, onboarding, active, restricted
@@ -54,6 +69,9 @@ model Gym {
   purchases            Purchase[]
   failedPayments       FailedPaymentAttempt[]
   payrollPeriods       PayrollPeriod[]
+  openingHours         OpeningHours[]
+  policies             GymPolicy[]
+  opportunities        Opportunity[]
 
   @@index([slug])
 }
@@ -144,6 +162,7 @@ model Member {
   invoices           Invoice[]
   purchases          Purchase[]
   failedPayments     FailedPaymentAttempt[]
+  opportunities      Opportunity[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -174,6 +193,14 @@ model Staff {
   phone     String?
   role      StaffRole
   avatarUrl String?
+
+  // Profile (for public trainer pages)
+  bio             String?     @db.Text
+  specialties     String[]    @default([])
+  certifications  String[]    @default([])
+  instagramUrl    String?
+  linkedinUrl     String?
+  isPublicProfile Boolean     @default(true)
 
   // Employment
   hireDate   DateTime @default(now())
@@ -238,6 +265,7 @@ model MembershipPlan {
   gymId         String
   gym           Gym            @relation(fields: [gymId], references: [id], onDelete: Cascade)
   subscriptions Subscription[]
+  targetedOpportunities Opportunity[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -868,6 +896,7 @@ model Product {
   gymId     String
   gym       Gym        @relation(fields: [gymId], references: [id], onDelete: Cascade)
   purchases Purchase[]
+  targetedOpportunities Opportunity[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1001,4 +1030,166 @@ model PayrollEntry {
 
   @@index([payrollPeriodId])
   @@index([staffId])
+}
+
+// ============================================
+// GYM PERSONALIZATION
+// ============================================
+
+model OpeningHours {
+  id          String   @id @default(cuid())
+  dayOfWeek   Int      // 0=Sunday, 1=Monday, ... 6=Saturday
+  openTime    String?  // "06:00" format, null if closed
+  closeTime   String?  // "22:00" format
+  isClosed    Boolean  @default(false)
+
+  // Relations
+  gymId String
+  gym   Gym    @relation(fields: [gymId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([gymId, dayOfWeek])
+  @@index([gymId])
+}
+
+model GymPolicy {
+  id        String  @id @default(cuid())
+  type      String  // "rules", "cancellation", "terms", "privacy"
+  title     String
+  content   String  @db.Text
+  isActive  Boolean @default(true)
+  sortOrder Int     @default(0)
+
+  // Relations
+  gymId String
+  gym   Gym    @relation(fields: [gymId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([gymId])
+  @@index([type])
+}
+
+// ============================================
+// OPPORTUNITIES (Upsell Detection)
+// ============================================
+
+enum OpportunityType {
+  UPGRADE           // Member on lower plan with high attendance
+  PERSONAL_TRAINING // Active member who hasn't tried PT
+  RENEWAL           // Subscription expiring soon
+  ADDON             // Class packs, merchandise
+  CROSS_SELL        // Additional services
+}
+
+enum OpportunityStatus {
+  NEW
+  CONTACTED
+  FOLLOW_UP
+  WON
+  LOST
+  DISMISSED
+  EXPIRED
+}
+
+enum OpportunityConfidence {
+  HIGH    // 70%+ probability
+  MEDIUM  // 40-70%
+  LOW     // <40%
+}
+
+model Opportunity {
+  id                  String                @id @default(cuid())
+  type                OpportunityType
+  status              OpportunityStatus     @default(NEW)
+  confidence          OpportunityConfidence
+
+  // Core data
+  title               String
+  description         String?
+  reason              String
+
+  // Financial
+  potentialValue      Decimal               @db.Decimal(10, 2)
+  actualValue         Decimal?              @db.Decimal(10, 2)
+
+  // Recommendation
+  recommendedAction   String
+  recommendedProduct  String?
+
+  // Detection metadata
+  detectedAt          DateTime              @default(now())
+  expiresAt           DateTime?
+
+  // Lifecycle tracking
+  contactedAt         DateTime?
+  contactedBy         String?
+  contactMethod       String?
+  contactNotes        String?
+
+  resolvedAt          DateTime?
+  resolvedBy          String?
+  resolutionNotes     String?
+
+  // Scoring factors (for ML optimization)
+  scoringFactors      Json?
+
+  // Relations
+  memberId            String
+  member              Member                @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  gymId               String
+  gym                 Gym                   @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  targetPlanId        String?
+  targetPlan          MembershipPlan?       @relation(fields: [targetPlanId], references: [id])
+  targetProductId     String?
+  targetProduct       Product?              @relation(fields: [targetProductId], references: [id])
+
+  actions             OpportunityAction[]
+  conversion          OpportunityConversion?
+
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+
+  @@index([gymId, status])
+  @@index([gymId, type])
+  @@index([memberId])
+  @@index([detectedAt])
+  @@index([expiresAt])
+}
+
+model OpportunityAction {
+  id              String      @id @default(cuid())
+  action          String      // "email_sent", "call_made", "discount_offered"
+  notes           String?
+  staffId         String?
+
+  // Relations
+  opportunityId   String
+  opportunity     Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime    @default(now())
+
+  @@index([opportunityId])
+}
+
+model OpportunityConversion {
+  id              String      @id @default(cuid())
+  convertedTo     String      // "subscription", "product", "pt_package"
+  subscriptionId  String?
+  purchaseId      String?
+  revenueAmount   Decimal     @db.Decimal(10, 2)
+  revenueType     String      // "one_time", "recurring"
+  daysToConvert   Int
+  touchPoints     Int
+
+  // Relations
+  opportunityId   String      @unique
+  opportunity     Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime    @default(now())
+
+  @@index([opportunityId])
 }

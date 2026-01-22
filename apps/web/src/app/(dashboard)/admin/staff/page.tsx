@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Search, UserCog, MoreHorizontal, Loader2, Mail, Phone, DollarSign, X } from 'lucide-react';
+import { Plus, Search, UserCog, MoreHorizontal, Loader2, Mail, Phone, DollarSign, X, Award, Instagram, Linkedin, Eye, EyeOff } from 'lucide-react';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,8 +24,33 @@ interface Staff {
   hireDate: string;
   hourlyRate: number | null;
   isActive: boolean;
+  bio: string | null;
+  specialties: string[];
+  certifications: string[];
+  instagramUrl: string | null;
+  linkedinUrl: string | null;
+  isPublicProfile: boolean;
   createdAt: string;
 }
+
+const STAFF_SPECIALTIES = [
+  'Personal Training',
+  'HIIT',
+  'Yoga',
+  'Pilates',
+  'CrossFit',
+  'Strength Training',
+  'Cardio',
+  'Spinning',
+  'Boxing',
+  'Martial Arts',
+  'Dance Fitness',
+  'Swimming',
+  'Nutrition',
+  'Rehabilitation',
+  'Senior Fitness',
+  'Kids Fitness',
+] as const;
 
 const ROLES = [
   { value: 'OWNER', label: 'Owner', color: 'bg-purple-100 text-purple-700' },
@@ -54,7 +79,14 @@ export default function StaffPage() {
     hireDate: new Date().toISOString().split('T')[0],
     hourlyRate: '',
     isActive: true,
+    bio: '',
+    specialties: [] as string[],
+    certifications: [] as string[],
+    instagramUrl: '',
+    linkedinUrl: '',
+    isPublicProfile: true,
   });
+  const [newCertification, setNewCertification] = useState('');
 
   useEffect(() => {
     fetchStaff();
@@ -94,7 +126,14 @@ export default function StaffPage() {
       hireDate: new Date().toISOString().split('T')[0],
       hourlyRate: '',
       isActive: true,
+      bio: '',
+      specialties: [],
+      certifications: [],
+      instagramUrl: '',
+      linkedinUrl: '',
+      isPublicProfile: true,
     });
+    setNewCertification('');
     setShowModal(true);
   };
 
@@ -109,7 +148,14 @@ export default function StaffPage() {
       hireDate: new Date(member.hireDate).toISOString().split('T')[0],
       hourlyRate: member.hourlyRate?.toString() || '',
       isActive: member.isActive,
+      bio: member.bio || '',
+      specialties: member.specialties || [],
+      certifications: member.certifications || [],
+      instagramUrl: member.instagramUrl || '',
+      linkedinUrl: member.linkedinUrl || '',
+      isPublicProfile: member.isPublicProfile ?? true,
     });
+    setNewCertification('');
     setShowModal(true);
   };
 
@@ -129,6 +175,9 @@ export default function StaffPage() {
           ...formData,
           phone: formData.phone || null,
           hourlyRate: formData.hourlyRate ? parseFloat(formData.hourlyRate) : null,
+          bio: formData.bio || null,
+          instagramUrl: formData.instagramUrl || null,
+          linkedinUrl: formData.linkedinUrl || null,
         }),
       });
 
@@ -366,6 +415,18 @@ export default function StaffPage() {
                           </span>
                         )}
                       </div>
+                      {member.specialties && member.specialties.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                          {member.specialties.slice(0, 4).map((specialty) => (
+                            <span key={specialty} className="inline-flex items-center rounded-md px-2 py-0.5 text-xs bg-slate-100 text-slate-600">
+                              {specialty}
+                            </span>
+                          ))}
+                          {member.specialties.length > 4 && (
+                            <span className="text-xs text-slate-400">+{member.specialties.length - 4} more</span>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     {/* Actions */}
@@ -511,6 +572,157 @@ export default function StaffPage() {
                 />
                 <Label htmlFor="isActive" className="font-normal">Active staff member</Label>
               </div>
+
+              {/* Profile Section - Only show for instructors/trainers */}
+              {['INSTRUCTOR', 'MANAGER'].includes(formData.role) && (
+                <>
+                  <div className="border-t border-slate-200 pt-4 mt-4">
+                    <h3 className="font-medium text-slate-900 mb-4 flex items-center gap-2">
+                      <Award className="w-4 h-4" />
+                      Trainer Profile
+                    </h3>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="bio">Bio</Label>
+                    <textarea
+                      id="bio"
+                      value={formData.bio}
+                      onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+                      placeholder="Tell members about this trainer..."
+                      rows={3}
+                      maxLength={2000}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-slate-900"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Specialties</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {STAFF_SPECIALTIES.map((specialty) => (
+                        <button
+                          key={specialty}
+                          type="button"
+                          onClick={() => {
+                            const specs = formData.specialties.includes(specialty)
+                              ? formData.specialties.filter(s => s !== specialty)
+                              : [...formData.specialties, specialty];
+                            setFormData({ ...formData, specialties: specs });
+                          }}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                            formData.specialties.includes(specialty)
+                              ? 'bg-slate-900 text-white'
+                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                          }`}
+                        >
+                          {specialty}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Certifications</Label>
+                    <div className="flex flex-wrap gap-2 mb-2">
+                      {formData.certifications.map((cert, index) => (
+                        <span
+                          key={index}
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-100 text-emerald-700 text-xs"
+                        >
+                          {cert}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const certs = formData.certifications.filter((_, i) => i !== index);
+                              setFormData({ ...formData, certifications: certs });
+                            }}
+                            className="hover:text-emerald-900"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                    <div className="flex gap-2">
+                      <Input
+                        value={newCertification}
+                        onChange={(e) => setNewCertification(e.target.value)}
+                        placeholder="e.g., NASM CPT, CrossFit Level 1"
+                        className="rounded-xl"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && newCertification.trim()) {
+                            e.preventDefault();
+                            setFormData({
+                              ...formData,
+                              certifications: [...formData.certifications, newCertification.trim()],
+                            });
+                            setNewCertification('');
+                          }
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          if (newCertification.trim()) {
+                            setFormData({
+                              ...formData,
+                              certifications: [...formData.certifications, newCertification.trim()],
+                            });
+                            setNewCertification('');
+                          }
+                        }}
+                        className="rounded-xl"
+                      >
+                        Add
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="instagramUrl" className="flex items-center gap-1">
+                        <Instagram className="w-3.5 h-3.5" />
+                        Instagram
+                      </Label>
+                      <Input
+                        id="instagramUrl"
+                        value={formData.instagramUrl}
+                        onChange={(e) => setFormData({ ...formData, instagramUrl: e.target.value })}
+                        placeholder="@username"
+                        className="rounded-xl"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="linkedinUrl" className="flex items-center gap-1">
+                        <Linkedin className="w-3.5 h-3.5" />
+                        LinkedIn
+                      </Label>
+                      <Input
+                        id="linkedinUrl"
+                        value={formData.linkedinUrl}
+                        onChange={(e) => setFormData({ ...formData, linkedinUrl: e.target.value })}
+                        placeholder="https://linkedin.com/in/..."
+                        className="rounded-xl"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="isPublicProfile"
+                      checked={formData.isPublicProfile}
+                      onChange={(e) => setFormData({ ...formData, isPublicProfile: e.target.checked })}
+                      className="w-4 h-4 rounded border-slate-300"
+                    />
+                    <Label htmlFor="isPublicProfile" className="font-normal flex items-center gap-1">
+                      {formData.isPublicProfile ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                      Show profile to members
+                    </Label>
+                  </div>
+                </>
+              )}
 
               <div className="flex justify-end gap-3 pt-4">
                 <Button type="button" variant="outline" onClick={() => setShowModal(false)} className="rounded-xl">

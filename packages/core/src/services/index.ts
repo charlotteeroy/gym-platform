@@ -215,3 +215,25 @@ export {
   getCashFlowReport,
   getRevenueBreakdown,
 } from './reporting.service';
+
+// Opportunity service
+export {
+  type OpportunityType,
+  type OpportunityConfidence,
+  type OpportunityStatus,
+  type DetectedOpportunity,
+  type OpportunityFilters,
+  type OpportunitySummary,
+  detectUpgradeOpportunities,
+  detectPTOpportunities,
+  detectRenewalOpportunities,
+  detectAddonOpportunities,
+  detectAllOpportunities,
+  getOpportunities,
+  getOpportunityById,
+  updateOpportunityStatus,
+  logOpportunityAction,
+  recordConversion,
+  getOpportunitySummary,
+  expireStaleOpportunities,
+} from './opportunity.service';
