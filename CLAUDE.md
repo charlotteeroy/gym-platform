@@ -799,6 +799,14 @@ All API endpoints return a consistent JSON structure:
 | **FlowStep** | Steps within a flow |
 | **Campaign** | One-time email/SMS campaigns |
 
+### Opportunities & Sales
+
+| Model | Purpose |
+|-------|---------|
+| **Opportunity** | Upsell opportunities (upgrade, PT, renewal, add-on) |
+| **OpportunityAction** | Actions taken on opportunities (calls, emails) |
+| **OpportunityConversion** | Successful conversions with revenue tracking |
+
 ### Staff Roles
 
 | Role | Permissions |
@@ -824,10 +832,15 @@ All API endpoints return a consistent JSON structure:
 ### Key Dashboard Pages
 
 ```
-/dashboard              # Main dashboard with stats
+/dashboard              # Main dashboard with stats + opportunities widget
 /members                # Member list and management
 /members/[id]           # Individual member details
+/opportunities          # Upsell opportunities with priority scoring
 /admin/gym              # Gym profile settings
+  /branding             # Logo, colors, theme
+  /hours                # Business hours
+  /policies             # Gym policies
+/admin/plans            # Membership plans CRUD
 /admin/staff            # Staff management
 /admin/billing          # Billing dashboard with revenue forecasting
   /payments             # Payment history
@@ -1101,6 +1114,124 @@ GET /api/admin/billing/forecast
   }
 }
 ```
+
+---
+
+### Opportunities & Upsell System
+
+**Purpose:** Automatically detects upsell opportunities based on member behavior and provides tools to send personalized offers.
+**Product Context:** Supports Owner Pillar - "Long-term Resilience" with revenue diversification and proactive member engagement.
+
+#### Database Models
+
+```prisma
+model Opportunity {
+  id                  String                @id @default(cuid())
+  type                OpportunityType       // UPGRADE, PERSONAL_TRAINING, RENEWAL, ADDON, CROSS_SELL
+  status              OpportunityStatus     // NEW, CONTACTED, FOLLOW_UP, WON, LOST, DISMISSED, EXPIRED
+  confidence          OpportunityConfidence // HIGH, MEDIUM, LOW
+  title               String
+  reason              String
+  potentialValue      Decimal
+  recommendedAction   String
+  contactedAt         DateTime?
+  memberId            String
+  gymId               String
+}
+
+model OpportunityAction {
+  id              String      @id @default(cuid())
+  opportunityId   String
+  action          String      // "email_sent", "call_made", "discount_offered"
+  notes           String?
+}
+
+model OpportunityConversion {
+  id              String      @id @default(cuid())
+  opportunityId   String      @unique
+  convertedTo     String
+  revenueAmount   Decimal
+  daysToConvert   Int
+}
+```
+
+#### Components
+
+| File | Purpose |
+|------|---------|
+| `packages/core/src/services/opportunity.service.ts` | Detection algorithms and management |
+| `apps/web/src/app/api/opportunities/route.ts` | List opportunities + trigger detection |
+| `apps/web/src/app/api/opportunities/[id]/route.ts` | Get/update single opportunity |
+| `apps/web/src/app/api/opportunities/[id]/actions/route.ts` | Log actions taken |
+| `apps/web/src/app/api/opportunities/[id]/convert/route.ts` | Record conversions |
+| `apps/web/src/app/(dashboard)/opportunities/page.tsx` | Opportunities page with filters |
+| `apps/web/src/components/opportunities/send-offer-modal.tsx` | Personalized offer modal |
+| `apps/web/src/components/dashboard/opportunities-widget.tsx` | Dashboard widget |
+
+#### Detection Algorithms
+
+| Type | Target Members | Key Signals | Potential Value |
+|------|----------------|-------------|-----------------|
+| **Upgrade** | Members on lower plans with 5+ visits/month | Engagement tier, class bookings, tenure | Plan price difference × 12 |
+| **Personal Training** | Active members without PT purchases | New member window (90 days), high engagement | Starter PT package price |
+| **Save from Cancellation** | Subscriptions with `cancelAtPeriodEnd=true` | Days until cancel, engagement level | Annual retention value |
+| **Add-on** | Members with 6+ of same class type/month | Class frequency, no recent pack purchase | Class pack price |
+
+#### Priority Scoring (0-100 points)
+
+```typescript
+// Confidence: HIGH = 30pts, MEDIUM = 18pts, LOW = 8pts
+// Value: Up to 25pts based on relative value to max
+// Type urgency: RENEWAL = 20pts, UPGRADE = 12pts, PT = 10pts
+// Expiration: ≤3 days = 15pts, ≤7 days = 10pts, ≤14 days = 5pts
+// Status: NEW = 10pts, FOLLOW_UP = 8pts, CONTACTED = 3pts
+
+Priority Labels:
+- 75+: 🔥 Hot
+- 55-74: ⚡ High
+- 35-54: 📊 Medium
+- <35: 📋 Low
+```
+
+#### Cooling Off Period
+
+Members contacted within the last **5 days** are automatically filtered out to prevent over-contacting:
+
+```typescript
+const COOLING_OFF_DAYS = 5;
+
+function isRecentlyContacted(opportunity: Opportunity): boolean {
+  if (!opportunity.contactedAt) return false;
+  const daysSinceContact = (Date.now() - contactedAt) / (1000 * 60 * 60 * 24);
+  return daysSinceContact < COOLING_OFF_DAYS;
+}
+```
+
+#### Personalized Offer Modal
+
+The send offer modal includes:
+- **Channel Selection**: Email, SMS, or Push notification
+- **AI-Suggested Messages**: Pre-generated based on opportunity type and member context
+- **Follow-up Scheduling**: Date picker for reminder
+- **Action Logging**: All sent messages are logged to opportunity history
+
+#### API Endpoints
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/opportunities` | GET | List with filters (type, status, confidence) |
+| `/api/opportunities` | POST | Trigger detection scan |
+| `/api/opportunities/[id]` | GET | Full opportunity details |
+| `/api/opportunities/[id]` | PATCH | Update status (contacted, won, lost) |
+| `/api/opportunities/[id]/actions` | POST | Log action taken |
+| `/api/opportunities/[id]/convert` | POST | Record conversion |
+
+#### UI Features
+
+1. **Value-Based Grouping**: Opportunities split into "High Potential Value" and "Medium Potential Value" sections
+2. **Priority Ranking**: Numbered 1, 2, 3... with gold/silver/bronze styling for top 3
+3. **Quick Actions**: Send Offer, Call, Mark Won/Lost, Dismiss
+4. **Dashboard Widget**: Top 5 opportunities with quick links
 
 ---
 
