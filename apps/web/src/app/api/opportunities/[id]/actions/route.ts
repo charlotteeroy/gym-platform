@@ -24,8 +24,18 @@ export async function POST(
     const data = await request.json();
     const { action, notes } = data as { action: string; notes?: string };
 
-    if (!action) {
-      return apiError({ code: 'VALIDATION_ERROR', message: 'Action is required' }, 400);
+    if (!action || typeof action !== 'string' || action.trim().length === 0) {
+      return apiError({ code: 'VALIDATION_ERROR', message: 'Action is required and must be a non-empty string' }, 400);
+    }
+
+    // Validate action length to prevent abuse
+    if (action.length > 100) {
+      return apiError({ code: 'VALIDATION_ERROR', message: 'Action must be 100 characters or less' }, 400);
+    }
+
+    // Validate notes length if provided
+    if (notes && notes.length > 5000) {
+      return apiError({ code: 'VALIDATION_ERROR', message: 'Notes must be 5000 characters or less' }, 400);
     }
 
     const logged = await logOpportunityAction(id, action, staff.id, notes);

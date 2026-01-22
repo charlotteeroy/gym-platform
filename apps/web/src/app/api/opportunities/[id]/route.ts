@@ -33,6 +33,9 @@ export async function GET(
   }
 }
 
+// Valid status transitions
+const VALID_STATUSES: OpportunityStatus[] = ['NEW', 'CONTACTED', 'FOLLOW_UP', 'WON', 'LOST', 'DISMISSED', 'EXPIRED'];
+
 // PATCH /api/opportunities/[id] - Update opportunity status
 export async function PATCH(
   request: NextRequest,
@@ -52,6 +55,14 @@ export async function PATCH(
       notes?: string;
       contactMethod?: string;
     };
+
+    // Validate status
+    if (!status || !VALID_STATUSES.includes(status)) {
+      return apiError({
+        code: 'VALIDATION_ERROR',
+        message: `Invalid status. Must be one of: ${VALID_STATUSES.join(', ')}`
+      }, 400);
+    }
 
     // Verify opportunity belongs to gym
     const existing = await getOpportunityById(id, staff.gymId);

@@ -327,7 +327,7 @@ export default function OpportunitiesPage() {
   };
 
   const stats = {
-    totalOpportunities: summary?.byStatus?.NEW ?? 0 + (summary?.byStatus?.CONTACTED ?? 0) + (summary?.byStatus?.FOLLOW_UP ?? 0),
+    totalOpportunities: (summary?.byStatus?.NEW ?? 0) + (summary?.byStatus?.CONTACTED ?? 0) + (summary?.byStatus?.FOLLOW_UP ?? 0),
     totalValue: summary?.totalPotentialValue ?? 0,
     highConfidence: summary?.byConfidence?.HIGH?.count ?? 0,
     renewals: summary?.byType?.RENEWAL?.count ?? 0,

@@ -288,7 +288,7 @@ export function SendOfferModal({ opportunity, isOpen, onClose, onSend }: SendOff
             {/* Member Info Card */}
             <div className="bg-slate-50 rounded-xl p-4 flex items-center gap-4">
               <div className="w-14 h-14 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white font-bold text-lg">
-                {opportunity.member.firstName[0]}{opportunity.member.lastName[0]}
+                {(opportunity.member.firstName?.[0] ?? '').toUpperCase()}{(opportunity.member.lastName?.[0] ?? '').toUpperCase()}
               </div>
               <div className="flex-1">
                 <h3 className="font-semibold text-slate-900">

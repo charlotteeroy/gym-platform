@@ -37,6 +37,37 @@ export async function POST(
       }, 400);
     }
 
+    // Validate string fields
+    if (typeof convertedTo !== 'string' || convertedTo.trim().length === 0) {
+      return apiError({
+        code: 'VALIDATION_ERROR',
+        message: 'convertedTo must be a non-empty string',
+      }, 400);
+    }
+
+    if (typeof revenueType !== 'string' || revenueType.trim().length === 0) {
+      return apiError({
+        code: 'VALIDATION_ERROR',
+        message: 'revenueType must be a non-empty string',
+      }, 400);
+    }
+
+    // Validate string lengths
+    if (convertedTo.length > 200 || revenueType.length > 100) {
+      return apiError({
+        code: 'VALIDATION_ERROR',
+        message: 'Field values exceed maximum length',
+      }, 400);
+    }
+
+    // Validate revenueAmount is a positive number
+    if (typeof revenueAmount !== 'number' || revenueAmount < 0 || isNaN(revenueAmount)) {
+      return apiError({
+        code: 'VALIDATION_ERROR',
+        message: 'revenueAmount must be a positive number',
+      }, 400);
+    }
+
     await recordConversion(id, {
       convertedTo,
       subscriptionId,
