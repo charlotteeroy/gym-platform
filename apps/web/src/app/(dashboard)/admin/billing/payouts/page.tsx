@@ -33,6 +33,9 @@ import {
   Users,
   Repeat,
   Infinity,
+  RotateCcw,
+  Trophy,
+  Briefcase,
 } from 'lucide-react';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
@@ -59,6 +62,7 @@ interface Payout {
   payoutType?: 'one_time' | 'recurring' | 'permanent';
   frequency?: 'weekly' | 'bi_weekly' | 'monthly' | 'quarterly';
   endDate?: string | null;
+  category?: PayoutCategory;
   recipient?: {
     id: string;
     firstName: string;
@@ -104,6 +108,28 @@ interface PayoutStats {
 
 type SortOption = 'date_desc' | 'date_asc' | 'amount_desc' | 'amount_asc';
 type ViewMode = 'payouts' | 'trainers';
+type PayoutCategory = 'freelancers' | 'refunds' | 'commissions';
+
+const PAYOUT_CATEGORIES = [
+  {
+    value: 'freelancers' as PayoutCategory,
+    label: 'Freelancers & Creators',
+    description: 'Payments to contractors, trainers, and content creators',
+    icon: 'Users'
+  },
+  {
+    value: 'refunds' as PayoutCategory,
+    label: 'Customer Refunds',
+    description: 'Membership cancellations and service refunds',
+    icon: 'RotateCcw'
+  },
+  {
+    value: 'commissions' as PayoutCategory,
+    label: 'Commissions & Prizes',
+    description: 'Sales commissions, prizes, and dividends',
+    icon: 'Trophy'
+  },
+];
 
 const PAYOUT_STATUSES = [
   { value: 'PENDING', label: 'Pending', color: 'bg-amber-100 text-amber-700', icon: Clock },
@@ -131,6 +157,7 @@ export default function PayoutsPage() {
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<SortOption>('date_desc');
   const [viewMode, setViewMode] = useState<ViewMode>('payouts');
+  const [categoryTab, setCategoryTab] = useState<PayoutCategory>('freelancers');
   const [error, setError] = useState<string | null>(null);
   const [selectedPayouts, setSelectedPayouts] = useState<string[]>([]);
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
@@ -152,6 +179,7 @@ export default function PayoutsPage() {
     payoutType: 'one_time' as 'one_time' | 'recurring' | 'permanent',
     frequency: 'monthly' as 'weekly' | 'bi_weekly' | 'monthly' | 'quarterly',
     endDate: '',
+    category: 'freelancers' as PayoutCategory,
   });
 
   // Settings state
@@ -169,10 +197,13 @@ export default function PayoutsPage() {
       const data = await response.json();
 
       if (data.success) {
-        // Add mock breakdown data for demo
-        const payoutsWithBreakdown = data.data.payouts.map((p: Payout) => ({
+        // Add mock breakdown and category data for demo
+        const categories: PayoutCategory[] = ['freelancers', 'refunds', 'commissions'];
+        const payoutsWithBreakdown = data.data.payouts.map((p: Payout, index: number) => ({
           ...p,
           breakdown: p.recipientType === 'instructor' ? generateMockBreakdown(Number(p.amount)) : [],
+          // Assign category based on recipient type or cycle through for demo
+          category: p.category || (p.recipientType === 'instructor' ? 'freelancers' : categories[index % 3]),
         }));
         setPayouts(payoutsWithBreakdown);
         setStats(data.data.stats);
@@ -261,6 +292,7 @@ export default function PayoutsPage() {
         payoutType: 'one_time',
         frequency: 'monthly',
         endDate: '',
+        category: 'freelancers',
       });
     } else {
       setPayoutForm({
@@ -272,6 +304,7 @@ export default function PayoutsPage() {
         payoutType: 'one_time',
         frequency: 'monthly',
         endDate: '',
+        category: categoryTab, // Use current tab as default
       });
     }
     setShowModal(true);
@@ -300,6 +333,7 @@ export default function PayoutsPage() {
           payoutType: payoutForm.payoutType,
           frequency: payoutForm.payoutType !== 'one_time' ? payoutForm.frequency : undefined,
           endDate: payoutForm.payoutType === 'recurring' ? payoutForm.endDate : undefined,
+          category: payoutForm.category,
         }),
       });
 
@@ -465,7 +499,8 @@ export default function PayoutsPage() {
   const filteredPayouts = getSortedPayouts(payouts.filter(payout => {
     const matchesStatus = statusFilter === 'all' || payout.status === statusFilter;
     const matchesType = typeFilter === 'all' || payout.recipientType === typeFilter;
-    return matchesStatus && matchesType;
+    const matchesCategory = payout.category === categoryTab;
+    return matchesStatus && matchesType && matchesCategory;
   }));
 
   const selectedTotalAmount = filteredPayouts
@@ -539,6 +574,57 @@ export default function PayoutsPage() {
             </button>
           </div>
         )}
+
+        {/* Category Tabs */}
+        <div className="bg-white rounded-2xl shadow-sm p-2">
+          <div className="grid grid-cols-3 gap-2">
+            {PAYOUT_CATEGORIES.map((cat) => {
+              const categoryPayouts = payouts.filter(p => p.category === cat.value);
+              const categoryTotal = categoryPayouts.reduce((sum, p) => sum + Number(p.amount), 0);
+              const pendingCount = categoryPayouts.filter(p => p.status === 'PENDING').length;
+
+              return (
+                <button
+                  key={cat.value}
+                  onClick={() => setCategoryTab(cat.value)}
+                  className={`relative p-4 rounded-xl text-left transition-all ${
+                    categoryTab === cat.value
+                      ? 'bg-slate-900 text-white'
+                      : 'bg-slate-50 hover:bg-slate-100 text-slate-700'
+                  }`}
+                >
+                  <div className="flex items-center gap-3 mb-2">
+                    {cat.value === 'freelancers' && (
+                      <Users className={`w-5 h-5 ${categoryTab === cat.value ? 'text-white' : 'text-indigo-600'}`} />
+                    )}
+                    {cat.value === 'refunds' && (
+                      <RotateCcw className={`w-5 h-5 ${categoryTab === cat.value ? 'text-white' : 'text-amber-600'}`} />
+                    )}
+                    {cat.value === 'commissions' && (
+                      <Trophy className={`w-5 h-5 ${categoryTab === cat.value ? 'text-white' : 'text-emerald-600'}`} />
+                    )}
+                    <span className="font-semibold">{cat.label}</span>
+                  </div>
+                  <p className={`text-xs mb-2 ${categoryTab === cat.value ? 'text-slate-300' : 'text-slate-500'}`}>
+                    {cat.description}
+                  </p>
+                  <div className="flex items-center justify-between">
+                    <span className={`text-lg font-bold ${categoryTab === cat.value ? 'text-white' : 'text-slate-900'}`}>
+                      {formatCurrency(categoryTotal)}
+                    </span>
+                    {pendingCount > 0 && (
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${
+                        categoryTab === cat.value ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-700'
+                      }`}>
+                        {pendingCount} pending
+                      </span>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
         {/* View Toggle and Filters */}
         <div className="bg-white rounded-2xl shadow-sm p-4">
@@ -770,6 +856,17 @@ export default function PayoutsPage() {
                                 <span className="inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-xs font-medium bg-purple-100 text-purple-700">
                                   <Infinity className="w-3 h-3" />
                                   Permanent
+                                </span>
+                              )}
+                              {payout.category && (
+                                <span className={`inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-xs font-medium ${
+                                  payout.category === 'freelancers' ? 'bg-indigo-50 text-indigo-600' :
+                                  payout.category === 'refunds' ? 'bg-amber-50 text-amber-600' :
+                                  'bg-emerald-50 text-emerald-600'
+                                }`}>
+                                  {payout.category === 'freelancers' && <Users className="w-3 h-3" />}
+                                  {payout.category === 'refunds' && <RotateCcw className="w-3 h-3" />}
+                                  {payout.category === 'commissions' && <Trophy className="w-3 h-3" />}
                                 </span>
                               )}
                             </div>
@@ -1225,6 +1322,33 @@ export default function PayoutsPage() {
                   className="rounded-xl"
                   placeholder="e.g., January commission"
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Category</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  {PAYOUT_CATEGORIES.map((cat) => (
+                    <button
+                      key={cat.value}
+                      type="button"
+                      onClick={() => setPayoutForm({ ...payoutForm, category: cat.value })}
+                      className={`p-3 rounded-xl border-2 text-left transition-all ${
+                        payoutForm.category === cat.value
+                          ? 'border-slate-900 bg-slate-50'
+                          : 'border-slate-200 hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        {cat.value === 'freelancers' && <Users className="w-4 h-4 text-indigo-600" />}
+                        {cat.value === 'refunds' && <RotateCcw className="w-4 h-4 text-amber-600" />}
+                        {cat.value === 'commissions' && <Trophy className="w-4 h-4 text-emerald-600" />}
+                        <span className={`text-xs font-medium ${payoutForm.category === cat.value ? 'text-slate-900' : 'text-slate-700'}`}>
+                          {cat.label.split(' ')[0]}
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div className="space-y-2">
