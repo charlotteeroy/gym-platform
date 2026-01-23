@@ -97,7 +97,7 @@ const navigation: NavigationItem[] = [
         ],
       },
       {
-        name: 'Expenses',
+        name: 'Expenditure',
         icon: ArrowDownCircle,
         children: [
           { name: 'Operating', href: '/admin/billing/expenses/operating', icon: Wrench },

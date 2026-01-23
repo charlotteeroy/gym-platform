@@ -257,7 +257,7 @@ export default function InventoryExpensesPage() {
               <Package className="w-5 h-5 text-cyan-600" />
             </div>
             <div>
-              <h2 className="font-semibold text-slate-900">Inventory Expenses</h2>
+              <h2 className="font-semibold text-slate-900">Inventory Expenditure</h2>
               <p className="text-sm text-slate-500">{expenses.length} purchases</p>
             </div>
           </div>

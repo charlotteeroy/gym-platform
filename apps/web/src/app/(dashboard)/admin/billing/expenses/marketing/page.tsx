@@ -192,7 +192,7 @@ export default function MarketingExpensesPage() {
 
   return (
     <>
-      <Header title="Marketing Expenses" description="Track advertising, promotions, and campaigns" />
+      <Header title="Marketing Expenditure" description="Track advertising, promotions, and campaigns" />
 
       <div className="p-4 md:p-6 space-y-6">
         {/* Stats Cards */}
@@ -284,7 +284,7 @@ export default function MarketingExpensesPage() {
               <Megaphone className="w-5 h-5 text-pink-600" />
             </div>
             <div>
-              <h2 className="font-semibold text-slate-900">Marketing Expenses</h2>
+              <h2 className="font-semibold text-slate-900">Marketing Expenditure</h2>
               <p className="text-sm text-slate-500">{expenses.length} entries</p>
             </div>
           </div>

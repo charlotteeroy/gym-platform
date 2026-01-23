@@ -190,7 +190,7 @@ export default function OperatingExpensesPage() {
 
   return (
     <>
-      <Header title="Operating Expenses" description="Rent, utilities, maintenance, and equipment costs" />
+      <Header title="Operating Expenditure" description="Rent, utilities, maintenance, and equipment costs" />
 
       <div className="p-4 md:p-6 space-y-6">
         {/* Stats Cards */}
@@ -244,7 +244,7 @@ export default function OperatingExpensesPage() {
               <Wrench className="w-5 h-5 text-indigo-600" />
             </div>
             <div>
-              <h2 className="font-semibold text-slate-900">Operating Expenses</h2>
+              <h2 className="font-semibold text-slate-900">Operating Expenditure</h2>
               <p className="text-sm text-slate-500">{expenses.length} expenses</p>
             </div>
           </div>

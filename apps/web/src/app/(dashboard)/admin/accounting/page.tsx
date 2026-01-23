@@ -72,7 +72,7 @@ interface ExpenseStats {
 
 const TABS = [
   { id: 'payments', label: 'Payments', icon: DollarSign },
-  { id: 'expenses', label: 'Expenses', icon: TrendingDown },
+  { id: 'expenses', label: 'Expenditure', icon: TrendingDown },
 ];
 
 const PAYMENT_METHODS = [
@@ -367,7 +367,7 @@ export default function AccountingPage() {
                 <p className="text-2xl font-bold text-slate-900">
                   {formatCurrency(expenseStats?.thisMonthExpenses || 0)}
                 </p>
-                <p className="text-sm text-slate-500">Expenses (Month)</p>
+                <p className="text-sm text-slate-500">Expenditure (Month)</p>
               </div>
             </div>
           </div>
