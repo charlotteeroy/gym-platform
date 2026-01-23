@@ -194,7 +194,7 @@ export default function BillingOverviewPage() {
 
       const payments = paymentsData.success ? paymentsData.data.payments : [];
       const invoices = invoicesData.success ? invoicesData.data.invoices : [];
-      const members = membersData.success ? (membersData.data.members || membersData.data) : [];
+      const members = membersData.success ? (membersData.data.items || membersData.data.members || []) : [];
 
       const now = new Date();
       const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
