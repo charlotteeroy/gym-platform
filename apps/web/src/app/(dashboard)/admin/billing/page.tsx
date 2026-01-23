@@ -137,6 +137,7 @@ export default function BillingOverviewPage() {
   const [monthlyRevenue, setMonthlyRevenue] = useState<MonthlyRevenue[]>([]);
   const [recentTransactions, setRecentTransactions] = useState<RecentTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Forecast state
   const [forecastData, setForecastData] = useState<ForecastData | null>(null);
@@ -169,32 +170,32 @@ export default function BillingOverviewPage() {
   const fetchBillingData = async () => {
     try {
       setIsLoading(true);
+      setError(null);
       console.log('[Billing] Starting to fetch billing data...');
 
-      const [paymentsRes, invoicesRes, membersRes, payoutsRes] = await Promise.all([
-        fetch('/api/admin/payments'),
-        fetch('/api/admin/invoices'),
-        fetch('/api/members'),
-        fetch('/api/admin/payouts'),
-      ]);
-      console.log('[Billing] Fetch responses received');
+      // Fetch all data with individual error handling
+      const fetchWithFallback = async (url: string, fallback: unknown) => {
+        try {
+          const res = await fetch(url);
+          const data = await res.json();
+          return data.success ? data.data : fallback;
+        } catch (e) {
+          console.error(`Failed to fetch ${url}:`, e);
+          return fallback;
+        }
+      };
 
-      const [paymentsData, invoicesData, membersData, payoutsData] = await Promise.all([
-        paymentsRes.json(),
-        invoicesRes.json(),
-        membersRes.json(),
-        payoutsRes.json(),
+      const [paymentsData, invoicesData, membersData] = await Promise.all([
+        fetchWithFallback('/api/admin/payments', { payments: [], stats: null }),
+        fetchWithFallback('/api/admin/invoices', { invoices: [] }),
+        fetchWithFallback('/api/members', { items: [] }),
       ]);
-      console.log('[Billing] JSON parsed:', {
-        payments: paymentsData.success,
-        invoices: invoicesData.success,
-        members: membersData.success,
-        payouts: payoutsData.success
-      });
 
-      const payments = paymentsData.success ? paymentsData.data.payments : [];
-      const invoices = invoicesData.success ? invoicesData.data.invoices : [];
-      const members = membersData.success ? (membersData.data.items || membersData.data.members || []) : [];
+      console.log('[Billing] Data fetched');
+
+      const payments = paymentsData.payments || [];
+      const invoices = invoicesData.invoices || [];
+      const members = membersData.items || membersData.members || [];
 
       const now = new Date();
       const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -322,8 +323,9 @@ export default function BillingOverviewPage() {
       }));
       setRecentTransactions(transactions);
 
-    } catch (error) {
-      console.error('Failed to fetch billing data:', error);
+    } catch (err) {
+      console.error('Failed to fetch billing data:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load billing data');
     } finally {
       console.log('[Billing] Setting isLoading to false');
       setIsLoading(false);
@@ -361,6 +363,19 @@ export default function BillingOverviewPage() {
         <Header title="Accounting" description="Financial overview and management" />
         <div className="flex items-center justify-center py-20">
           <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+        </div>
+      </>
+    );
+  }
+
+  if (error) {
+    return (
+      <>
+        <Header title="Accounting" description="Financial overview and management" />
+        <div className="p-6">
+          <div className="bg-red-50 text-red-600 p-4 rounded-xl">
+            {error}
+          </div>
         </div>
       </>
     );
