@@ -278,3 +278,13 @@ export {
   getAllCurrencies,
   isValidCurrency,
 } from './currency.service';
+
+// Member Progression service
+export {
+  type TierName,
+  type MemberTier,
+  type TierProgression,
+  ENGAGEMENT_TIERS,
+  getMemberProgression,
+  getTierColor,
+} from './member-progression.service';
