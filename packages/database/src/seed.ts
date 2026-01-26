@@ -65,9 +65,9 @@ async function main() {
   // Create test gym
   const gym = await prisma.gym.create({
     data: {
-      name: 'FitLife Gym',
-      slug: 'fitlife-gym',
-      email: 'info@fitlifegym.com',
+      name: 'SmashBox',
+      slug: 'smashbox',
+      email: 'info@smashbox.com',
       phone: '(555) 123-4567',
       address: '123 Fitness Street, Gym City, GC 12345',
       timezone: 'America/New_York',
