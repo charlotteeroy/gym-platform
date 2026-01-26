@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Tag, Plus, Loader2, MoreHorizontal, Pencil, Trash2, X, Users, Check, Infinity } from 'lucide-react';
+import { Tag, Plus, Loader2, MoreHorizontal, Pencil, Trash2, X, Users, Check, Infinity as InfinityIcon } from 'lucide-react';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -384,7 +384,7 @@ export default function PlansPage() {
                       <div className="flex items-center gap-2">
                         {plan.classCredits === -1 ? (
                           <>
-                            <Infinity className="w-4 h-4 text-emerald-500" />
+                            <InfinityIcon className="w-4 h-4 text-emerald-500" />
                             <span>Unlimited classes</span>
                           </>
                         ) : (
