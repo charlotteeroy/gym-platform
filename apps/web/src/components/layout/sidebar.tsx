@@ -138,18 +138,9 @@ export function Sidebar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [expandedSections, setExpandedSections] = useState<string[]>(['Business']);
-  const [isMobile, setIsMobile] = useState(false);
 
   // Get gym branding
   const { settings: gymSettings } = useGymTheme();
-
-  // Detect screen size with JavaScript
-  useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 768);
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
 
   // Auto-expand sections based on current path
   useEffect(() => {
@@ -388,82 +379,78 @@ export function Sidebar() {
     </>
   );
 
-  // Mobile view
-  if (isMobile) {
-    return (
-      <>
-        {/* Mobile Header Bar */}
-        <div
-          className="fixed top-0 left-0 right-0 z-40 flex h-14 items-center justify-between border-b border-slate-200/60 bg-white/80 backdrop-blur-sm px-4"
-          style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 40, display: 'flex', height: '56px', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #e2e8f0', backgroundColor: 'rgba(255,255,255,0.8)', padding: '0 16px' }}
-        >
-          <div className="flex items-center gap-2.5" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center overflow-hidden" style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: gymSettings.logoUrl ? 'transparent' : '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              {gymSettings.logoUrl ? (
-                <img src={gymSettings.logoUrl} alt={gymSettings.name} className="w-full h-full object-cover" />
-              ) : (
-                <Dumbbell className="h-4 w-4 text-white" />
-              )}
-            </div>
-            <span className="font-bold text-base text-slate-900 tracking-tight truncate" style={{ fontWeight: 700, fontSize: '16px', color: '#0f172a' }}>{gymSettings.name}</span>
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-10 w-10 rounded-xl hover:bg-slate-100"
-            onClick={() => setMobileOpen(!mobileOpen)}
-            aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
-            style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'transparent', border: 'none', cursor: 'pointer' }}
-          >
-            {mobileOpen ? <X className="h-5 w-5 text-slate-600" /> : <Menu className="h-5 w-5 text-slate-600" />}
-          </Button>
-        </div>
-
-        {/* Mobile Overlay */}
-        {mobileOpen && (
-          <div
-            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
-            style={{ position: 'fixed', inset: 0, zIndex: 40, backgroundColor: 'rgba(0,0,0,0.5)' }}
-            onClick={() => setMobileOpen(false)}
-            aria-hidden="true"
-          />
-        )}
-
-        {/* Mobile Sidebar Drawer */}
-        <div
-          className={cn(
-            'fixed top-14 left-0 bottom-0 z-50 w-72 bg-white border-r border-slate-200/60 transform transition-transform duration-200 ease-in-out',
-            mobileOpen ? 'translate-x-0' : '-translate-x-full'
-          )}
-          style={{
-            position: 'fixed',
-            top: '56px',
-            left: 0,
-            bottom: 0,
-            zIndex: 50,
-            width: '288px',
-            backgroundColor: 'white',
-            borderRight: '1px solid #e2e8f0',
-            transform: mobileOpen ? 'translateX(0)' : 'translateX(-100%)',
-            transition: 'transform 0.2s ease-in-out'
-          }}
-        >
-          <div className="flex h-full flex-col" style={{ display: 'flex', height: '100%', flexDirection: 'column' }}>
-            <SidebarContent />
-          </div>
-        </div>
-      </>
-    );
-  }
-
-  // Desktop view
   return (
-    <div
-      className="flex h-full w-64 flex-col border-r border-slate-200/60 bg-white"
-      style={{ display: 'flex', height: '100%', width: '256px', flexDirection: 'column', borderRight: '1px solid #e2e8f0', backgroundColor: 'white' }}
-    >
-      <SidebarContent />
-    </div>
+    <>
+      {/* Mobile Header Bar - only visible on mobile */}
+      <div className="md:hidden fixed top-0 left-0 right-0 z-40 flex h-14 items-center justify-between border-b border-slate-200/60 bg-white/95 backdrop-blur-sm px-4">
+        <div className="flex items-center gap-2.5">
+          <div
+            className="w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden"
+            style={{ backgroundColor: gymSettings.logoUrl ? 'transparent' : '#0f172a' }}
+          >
+            {gymSettings.logoUrl ? (
+              <img src={gymSettings.logoUrl} alt={gymSettings.name} className="w-full h-full object-cover" />
+            ) : (
+              <Dumbbell className="h-4 w-4 text-white" />
+            )}
+          </div>
+          <span className="font-bold text-base text-slate-900 tracking-tight truncate">{gymSettings.name}</span>
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-10 w-10 rounded-xl hover:bg-slate-100"
+          onClick={() => setMobileOpen(!mobileOpen)}
+          aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
+        >
+          {mobileOpen ? <X className="h-5 w-5 text-slate-600" /> : <Menu className="h-5 w-5 text-slate-600" />}
+        </Button>
+      </div>
+
+      {/* Mobile Overlay - only on mobile when menu is open */}
+      {mobileOpen && (
+        <div
+          className="md:hidden fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+          onClick={() => setMobileOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Mobile Sidebar Drawer - only on mobile */}
+      <div
+        className={cn(
+          'md:hidden fixed top-14 left-0 bottom-0 z-50 w-72 bg-white border-r border-slate-200/60 transform transition-transform duration-200 ease-in-out',
+          mobileOpen ? 'translate-x-0' : '-translate-x-full'
+        )}
+      >
+        <div className="flex h-full flex-col overflow-hidden">
+          <nav className="flex-1 space-y-1 p-4 overflow-y-auto">
+            {navigation.map((item) =>
+              isNavSection(item) ? (
+                <NavSectionComponent key={item.name} section={item} />
+              ) : (
+                <NavLink key={item.name} item={item} />
+              )
+            )}
+          </nav>
+          <div className="border-t border-slate-200/60 p-4">
+            <Button
+              variant="ghost"
+              className="w-full justify-start gap-3 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl min-h-[44px]"
+              onClick={handleLogout}
+            >
+              <LogOut className="h-5 w-5 flex-shrink-0" />
+              <span>Sign out</span>
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Desktop Sidebar - hidden on mobile, visible on md+ */}
+      <aside className="desktop-sidebar-container h-full w-64 flex-col border-r border-slate-200/60 bg-white">
+        <SidebarContent />
+      </aside>
+    </>
   );
 }
 

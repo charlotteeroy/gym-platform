@@ -217,7 +217,10 @@ export default function MembersPage() {
                 </div>
               </div>
 
-              <div className="bg-white rounded-2xl p-5 shadow-sm">
+              <button
+                onClick={() => setActivityLevel(activityLevel === 'declining' ? '' : 'declining')}
+                className={`bg-white rounded-2xl p-5 shadow-sm text-left w-full transition-all hover:shadow-md ${activityLevel === 'declining' ? 'ring-2 ring-red-500' : ''}`}
+              >
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-xl bg-red-100 flex items-center justify-center">
                     <AlertTriangle className="w-6 h-6 text-red-600" />
@@ -227,7 +230,7 @@ export default function MembersPage() {
                     <p className="text-sm text-slate-500">At Risk</p>
                   </div>
                 </div>
-              </div>
+              </button>
             </div>
 
             {/* Activity Distribution */}
@@ -306,57 +309,103 @@ export default function MembersPage() {
         )}
 
         {/* Filters & Actions */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          {/* Search */}
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <Input
-              placeholder="Search members..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 h-11 border-slate-200 bg-white rounded-xl"
-            />
+        <div className="space-y-3">
+          {/* Mobile: Search + Add Button Row */}
+          <div className="flex gap-2 sm:hidden">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Input
+                placeholder="Search..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 h-11 border-slate-200 bg-white rounded-xl"
+              />
+            </div>
+            <Button
+              onClick={() => setIsAddMemberOpen(true)}
+              className="h-11 px-4 bg-slate-900 hover:bg-slate-800 rounded-xl"
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
           </div>
 
-          {/* Filter Dropdown */}
-          <select
-            value={activityLevel}
-            onChange={(e) => setActivityLevel(e.target.value)}
-            className="h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-700 min-w-[150px]"
-          >
-            <option value="">All Activity</option>
-            <option value="high">Super Active</option>
-            <option value="medium">Active</option>
-            <option value="low">Low Active</option>
-            <option value="inactive">Dormant</option>
-            <option value="declining">Declining</option>
-          </select>
+          {/* Mobile: Filter Row */}
+          <div className="flex gap-2 sm:hidden">
+            <select
+              value={activityLevel}
+              onChange={(e) => setActivityLevel(e.target.value)}
+              className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 flex-1"
+            >
+              <option value="">All Activity</option>
+              <option value="high">Super Active</option>
+              <option value="medium">Active</option>
+              <option value="low">Low Active</option>
+              <option value="inactive">Dormant</option>
+              <option value="declining">Declining</option>
+            </select>
+            <select
+              value={`${sortBy}-${sortOrder}`}
+              onChange={(e) => {
+                const [field, order] = e.target.value.split('-');
+                setSortBy(field);
+                setSortOrder(order as 'asc' | 'desc');
+              }}
+              className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 flex-1"
+            >
+              <option value="joinedAt-desc">Newest</option>
+              <option value="joinedAt-asc">Oldest</option>
+              <option value="visitCount-desc">Most Active</option>
+              <option value="visitCount-asc">Least Active</option>
+              <option value="firstName-asc">A-Z</option>
+            </select>
+          </div>
 
-          {/* Sort */}
-          <select
-            value={`${sortBy}-${sortOrder}`}
-            onChange={(e) => {
-              const [field, order] = e.target.value.split('-');
-              setSortBy(field);
-              setSortOrder(order as 'asc' | 'desc');
-            }}
-            className="h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-700 min-w-[140px]"
-          >
-            <option value="joinedAt-desc">Newest</option>
-            <option value="joinedAt-asc">Oldest</option>
-            <option value="visitCount-desc">Most Active</option>
-            <option value="visitCount-asc">Least Active</option>
-            <option value="firstName-asc">A-Z</option>
-          </select>
-
-          {/* Add Button */}
-          <Button
-            onClick={() => setIsAddMemberOpen(true)}
-            className="h-11 px-5 bg-slate-900 hover:bg-slate-800 rounded-xl"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Add Member
-          </Button>
+          {/* Desktop Layout */}
+          <div className="hidden sm:flex sm:flex-row gap-3 flex-wrap">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Input
+                placeholder="Search members..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 h-11 border-slate-200 bg-white rounded-xl"
+              />
+            </div>
+            <select
+              value={activityLevel}
+              onChange={(e) => setActivityLevel(e.target.value)}
+              className="h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-700"
+            >
+              <option value="">All Activity</option>
+              <option value="high">Super Active</option>
+              <option value="medium">Active</option>
+              <option value="low">Low Active</option>
+              <option value="inactive">Dormant</option>
+              <option value="declining">Declining</option>
+            </select>
+            <select
+              value={`${sortBy}-${sortOrder}`}
+              onChange={(e) => {
+                const [field, order] = e.target.value.split('-');
+                setSortBy(field);
+                setSortOrder(order as 'asc' | 'desc');
+              }}
+              className="h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-700"
+            >
+              <option value="joinedAt-desc">Newest</option>
+              <option value="joinedAt-asc">Oldest</option>
+              <option value="visitCount-desc">Most Active</option>
+              <option value="visitCount-asc">Least Active</option>
+              <option value="firstName-asc">A-Z</option>
+            </select>
+            <Button
+              onClick={() => setIsAddMemberOpen(true)}
+              className="h-11 px-5 bg-slate-900 hover:bg-slate-800 rounded-xl whitespace-nowrap"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add Member
+            </Button>
+          </div>
         </div>
 
         {/* Tags */}

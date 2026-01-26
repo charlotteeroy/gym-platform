@@ -218,9 +218,13 @@ export async function listMembers(
   const { status, search, tags, activityLevel, page, limit, sortBy, sortOrder } = filters;
 
   // Build base where clause
+  // When filtering by activityLevel (but no explicit status), default to ACTIVE members
+  // to match the insights API which only counts ACTIVE members in activity distribution
+  const effectiveStatus = status || (activityLevel ? 'ACTIVE' : undefined);
+
   const baseWhere: Record<string, unknown> = {
     gymId,
-    ...(status ? { status } : {}),
+    ...(effectiveStatus ? { status: effectiveStatus } : {}),
     ...(search
       ? {
           OR: [
@@ -269,8 +273,9 @@ export async function listMembers(
         )
       : null;
 
-    // Determine activity level
-    let memberActivityLevel: 'high' | 'medium' | 'low' | 'inactive' | 'declining';
+    // Determine activity level based on visit count in last 30 days
+    // Note: 'declining' is handled separately via isDeclining flag (based on recency, not count)
+    let memberActivityLevel: 'high' | 'medium' | 'low' | 'inactive';
     if (visitCount >= 12) {
       memberActivityLevel = 'high';
     } else if (visitCount >= 4) {

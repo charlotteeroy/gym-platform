@@ -883,9 +883,67 @@ export default function PaymentsPage() {
 
             {/* Filters */}
             <div className="bg-white rounded-2xl shadow-sm p-4">
-              <div className="flex flex-col md:flex-row gap-4">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              {/* Mobile Layout */}
+              <div className="md:hidden space-y-3">
+                {/* Search + New Payment Row */}
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                    <Input
+                      placeholder="Search..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-9 rounded-xl w-full h-10"
+                    />
+                  </div>
+                  <Button
+                    onClick={handleOpenNewPaymentModal}
+                    className="bg-slate-900 hover:bg-slate-800 rounded-xl h-10 px-4"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </div>
+
+                {/* Filter Row */}
+                <div className="flex gap-2">
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="h-10 px-3 rounded-xl border border-slate-200 bg-white text-sm flex-1"
+                  >
+                    <option value="all">All Status</option>
+                    {PAYMENT_STATUSES.map((s) => (
+                      <option key={s.value} value={s.value}>{s.label}</option>
+                    ))}
+                  </select>
+
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowFilters(!showFilters)}
+                    className={`rounded-xl h-10 px-3 ${showFilters ? 'bg-slate-100' : ''}`}
+                  >
+                    <Filter className="w-4 h-4" />
+                    {activeFilterCount > 0 && (
+                      <span className="ml-1.5 bg-indigo-600 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
+                        {activeFilterCount}
+                      </span>
+                    )}
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
+                    className="rounded-xl h-10 px-3"
+                  >
+                    <ArrowUpDown className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Desktop Layout */}
+              <div className="hidden md:flex md:flex-col lg:flex-row gap-4">
+                <div className="relative flex-1 min-w-0">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                   <Input
                     placeholder="Search by member, description, or invoice..."
                     value={searchQuery}
@@ -894,11 +952,11 @@ export default function PaymentsPage() {
                   />
                 </div>
 
-                <div className="flex gap-3 flex-wrap">
+                <div className="flex flex-wrap gap-2 lg:gap-3">
                   <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
-                    className="h-10 px-3 rounded-xl border border-slate-200 bg-white text-sm min-w-[130px]"
+                    className="h-10 px-3 rounded-xl border border-slate-200 bg-white text-sm"
                   >
                     <option value="all">All Status</option>
                     {PAYMENT_STATUSES.map((s) => (
@@ -909,7 +967,7 @@ export default function PaymentsPage() {
                   <select
                     value={typeFilter}
                     onChange={(e) => setTypeFilter(e.target.value)}
-                    className="h-10 px-3 rounded-xl border border-slate-200 bg-white text-sm min-w-[140px]"
+                    className="h-10 px-3 rounded-xl border border-slate-200 bg-white text-sm"
                   >
                     {PAYMENT_TYPES.map((t) => (
                       <option key={t.value} value={t.value}>{t.label}</option>
@@ -919,12 +977,12 @@ export default function PaymentsPage() {
                   <Button
                     variant="outline"
                     onClick={() => setShowFilters(!showFilters)}
-                    className={`rounded-xl ${showFilters ? 'bg-slate-100' : ''}`}
+                    className={`rounded-xl whitespace-nowrap ${showFilters ? 'bg-slate-100' : ''}`}
                   >
-                    <Filter className="w-4 h-4 mr-2" />
-                    More Filters
+                    <Filter className="w-4 h-4 lg:mr-2" />
+                    <span className="hidden lg:inline">More Filters</span>
                     {activeFilterCount > 2 && (
-                      <span className="ml-2 bg-indigo-100 text-indigo-700 text-xs px-1.5 py-0.5 rounded-full">
+                      <span className="ml-1 lg:ml-2 bg-indigo-100 text-indigo-700 text-xs px-1.5 py-0.5 rounded-full">
                         {activeFilterCount - 2}
                       </span>
                     )}
@@ -933,25 +991,25 @@ export default function PaymentsPage() {
                   <Button
                     variant="outline"
                     onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
-                    className="rounded-xl"
+                    className="rounded-xl whitespace-nowrap"
                   >
-                    <ArrowUpDown className="w-4 h-4 mr-2" />
-                    {sortOrder === 'desc' ? 'Newest' : 'Oldest'}
+                    <ArrowUpDown className="w-4 h-4 lg:mr-2" />
+                    <span className="hidden lg:inline">{sortOrder === 'desc' ? 'Newest' : 'Oldest'}</span>
                   </Button>
 
                   <div className="relative">
                     <Button
                       variant="outline"
-                      className="rounded-xl"
+                      className="rounded-xl whitespace-nowrap"
                       onClick={() => setActiveDropdown(activeDropdown === 'export' ? null : 'export')}
                       disabled={exportLoading}
                     >
                       {exportLoading ? (
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        <Loader2 className="w-4 h-4 lg:mr-2 animate-spin" />
                       ) : (
-                        <Download className="w-4 h-4 mr-2" />
+                        <Download className="w-4 h-4 lg:mr-2" />
                       )}
-                      Export
+                      <span className="hidden lg:inline">Export</span>
                       <ChevronDown className="w-4 h-4 ml-1" />
                     </Button>
                     {activeDropdown === 'export' && (
@@ -976,10 +1034,10 @@ export default function PaymentsPage() {
 
                   <Button
                     onClick={handleOpenNewPaymentModal}
-                    className="bg-slate-900 hover:bg-slate-800 rounded-xl"
+                    className="bg-slate-900 hover:bg-slate-800 rounded-xl whitespace-nowrap"
                   >
-                    <Plus className="w-4 h-4 mr-2" />
-                    New Payment
+                    <Plus className="w-4 h-4 lg:mr-2" />
+                    <span className="hidden lg:inline">New Payment</span>
                   </Button>
                 </div>
               </div>

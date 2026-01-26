@@ -57,6 +57,7 @@ async function main() {
   await prisma.member.deleteMany({});
   await prisma.membershipPlan.deleteMany({});
   await prisma.staff.deleteMany({});
+  await prisma.taxConfiguration.deleteMany({});
   await prisma.session.deleteMany({});
   await prisma.user.deleteMany({});
   await prisma.gym.deleteMany({});
@@ -75,6 +76,25 @@ async function main() {
   });
 
   console.log('Created gym:', gym.name);
+
+  // Create tax configuration with test tax numbers
+  const taxConfig = await prisma.taxConfiguration.create({
+    data: {
+      gymId: gym.id,
+      province: 'ON',
+      taxType: 'HST',
+      gstHstNumber: '123456789RT0001',
+      pstNumber: null,
+      qstNumber: null,
+      gstRate: 0.05,
+      pstRate: 0,
+      hstRate: 0.13,
+      qstRate: 0,
+      isSmallSupplier: false,
+    },
+  });
+
+  console.log('Created tax configuration for province:', taxConfig.province);
 
   // Hash passwords
   const ownerPasswordHash = await bcrypt.hash('TestOwner123!', 12);

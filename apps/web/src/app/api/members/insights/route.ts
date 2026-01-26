@@ -61,11 +61,13 @@ export async function GET() {
     members.forEach((member) => {
       const visitCount = member.checkIns.length;
 
-      // Activity level
-      if (visitCount >= 12) highActivity++;
-      else if (visitCount >= 4) mediumActivity++;
-      else if (visitCount >= 1) lowActivity++;
-      else inactive++;
+      // Activity level - only count ACTIVE members to match list filter behavior
+      if (member.status === 'ACTIVE') {
+        if (visitCount >= 12) highActivity++;
+        else if (visitCount >= 4) mediumActivity++;
+        else if (visitCount >= 1) lowActivity++;
+        else inactive++;
+      }
 
       // At-risk calculation
       if (member.status === 'ACTIVE') {
