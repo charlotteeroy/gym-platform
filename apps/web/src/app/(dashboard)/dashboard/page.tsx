@@ -441,8 +441,11 @@ export default async function DashboardPage() {
                 </div>
               </div>
               <p className="text-xs text-slate-500">
-                {todaysPeakHours.length > 1 && (
-                  <>Also busy: <span className="font-medium text-blue-600">{todaysPeakHours[1]?.label}, {todaysPeakHours[2]?.label}</span></>
+                {todaysPeakHours.length >= 2 && (
+                  <>Also busy: <span className="font-medium text-blue-600">
+                    {todaysPeakHours[1]?.label}
+                    {todaysPeakHours[2]?.label && `, ${todaysPeakHours[2].label}`}
+                  </span></>
                 )}
               </p>
             </Link>
@@ -829,7 +832,7 @@ export default async function DashboardPage() {
                     </div>
                   ))}
                 </div>
-                <p className="text-xs text-slate-400 mt-4">{topDays[0]?.day} sees the most traffic</p>
+                <p className="text-xs text-slate-400 mt-4">{topDays[0]?.day || 'Monday'} sees the most traffic</p>
               </div>
             </div>
           </div>
