@@ -383,7 +383,7 @@ async function main() {
         break;
       case 'dormant':
         checkInsToCreate = Math.floor(Math.random() * 3) + 1; // 1-3 check-ins
-        checkInRecency = Math.floor(Math.random() * 30) + 30; // 30-60 days ago
+        checkInRecency = Math.floor(Math.random() * 30) + 35; // 35-65 days ago (outside 30-day window)
         break;
       case 'at-risk':
         checkInsToCreate = Math.floor(Math.random() * 6) + 4; // 4-10 check-ins
