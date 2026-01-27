@@ -941,18 +941,28 @@ export default function PaymentsPage() {
               </div>
 
               {/* Desktop Layout */}
-              <div className="hidden md:flex md:flex-col lg:flex-row gap-4">
-                <div className="relative flex-1 min-w-0">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                  <Input
-                    placeholder="Search by member, description, or invoice..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9 rounded-xl"
-                  />
+              <div className="hidden md:flex flex-col gap-3">
+                <div className="flex gap-3">
+                  <div className="relative flex-1 min-w-0">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                    <Input
+                      placeholder="Search by member, description, or invoice..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-9 rounded-xl"
+                    />
+                  </div>
+
+                  <Button
+                    onClick={handleOpenNewPaymentModal}
+                    className="bg-slate-900 hover:bg-slate-800 rounded-xl whitespace-nowrap"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    New Payment
+                  </Button>
                 </div>
 
-                <div className="flex flex-wrap gap-2 lg:gap-3">
+                <div className="flex flex-wrap gap-2">
                   <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
@@ -979,10 +989,10 @@ export default function PaymentsPage() {
                     onClick={() => setShowFilters(!showFilters)}
                     className={`rounded-xl whitespace-nowrap ${showFilters ? 'bg-slate-100' : ''}`}
                   >
-                    <Filter className="w-4 h-4 lg:mr-2" />
-                    <span className="hidden lg:inline">More Filters</span>
+                    <Filter className="w-4 h-4 mr-2" />
+                    More Filters
                     {activeFilterCount > 2 && (
-                      <span className="ml-1 lg:ml-2 bg-indigo-100 text-indigo-700 text-xs px-1.5 py-0.5 rounded-full">
+                      <span className="ml-2 bg-indigo-100 text-indigo-700 text-xs px-1.5 py-0.5 rounded-full">
                         {activeFilterCount - 2}
                       </span>
                     )}
@@ -993,8 +1003,8 @@ export default function PaymentsPage() {
                     onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
                     className="rounded-xl whitespace-nowrap"
                   >
-                    <ArrowUpDown className="w-4 h-4 lg:mr-2" />
-                    <span className="hidden lg:inline">{sortOrder === 'desc' ? 'Newest' : 'Oldest'}</span>
+                    <ArrowUpDown className="w-4 h-4 mr-2" />
+                    {sortOrder === 'desc' ? 'Newest' : 'Oldest'}
                   </Button>
 
                   <div className="relative">
@@ -1005,11 +1015,11 @@ export default function PaymentsPage() {
                       disabled={exportLoading}
                     >
                       {exportLoading ? (
-                        <Loader2 className="w-4 h-4 lg:mr-2 animate-spin" />
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                       ) : (
-                        <Download className="w-4 h-4 lg:mr-2" />
+                        <Download className="w-4 h-4 mr-2" />
                       )}
-                      <span className="hidden lg:inline">Export</span>
+                      Export
                       <ChevronDown className="w-4 h-4 ml-1" />
                     </Button>
                     {activeDropdown === 'export' && (
@@ -1031,14 +1041,6 @@ export default function PaymentsPage() {
                       </div>
                     )}
                   </div>
-
-                  <Button
-                    onClick={handleOpenNewPaymentModal}
-                    className="bg-slate-900 hover:bg-slate-800 rounded-xl whitespace-nowrap"
-                  >
-                    <Plus className="w-4 h-4 lg:mr-2" />
-                    <span className="hidden lg:inline">New Payment</span>
-                  </Button>
                 </div>
               </div>
 
