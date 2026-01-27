@@ -5,3 +5,4 @@ export * from './staff.schema';
 export * from './membership.schema';
 export * from './class.schema';
 export * from './tag.schema';
+export * from './pass.schema';

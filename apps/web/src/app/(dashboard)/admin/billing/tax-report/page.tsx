@@ -6,7 +6,6 @@ import {
   Loader2,
   AlertCircle,
   Calendar,
-  Download,
   TrendingUp,
   TrendingDown,
   Receipt,
@@ -17,6 +16,8 @@ import {
 import Link from 'next/link';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
+import { ExportButton } from '@/components/ui/export-button';
+import { type ExportColumn } from '@/lib/export';
 
 interface TaxReport {
   period: { start: string; end: string };
@@ -135,40 +136,26 @@ export default function TaxReportPage() {
     setEndDate(end.toISOString().split('T')[0]);
   };
 
-  const exportToCSV = () => {
-    if (!report) return;
+  const taxReportRows = report ? [
+    { category: 'Taxes Collected', item: 'GST Collected', amount: report.gstCollected },
+    { category: 'Taxes Collected', item: 'PST Collected', amount: report.pstCollected },
+    { category: 'Taxes Collected', item: 'HST Collected', amount: report.hstCollected },
+    { category: 'Taxes Collected', item: 'QST Collected', amount: report.qstCollected },
+    { category: 'Taxes Collected', item: 'Total Collected', amount: report.totalCollected },
+    { category: 'Input Tax Credits', item: 'GST ITC', amount: report.gstItc },
+    { category: 'Input Tax Credits', item: 'HST ITC', amount: report.hstItc },
+    { category: 'Input Tax Credits', item: 'QST ITC', amount: report.qstItc },
+    { category: 'Input Tax Credits', item: 'Total ITCs', amount: report.totalItc },
+    { category: 'Net Amounts', item: 'Net GST/HST Owing', amount: report.netGstHst },
+    { category: 'Net Amounts', item: 'Net QST Owing', amount: report.netQst },
+    { category: 'Net Amounts', item: 'Total Tax Owing', amount: report.totalOwing },
+  ] : [];
 
-    const rows = [
-      ['Tax Report', `${startDate} to ${endDate}`],
-      [],
-      ['Taxes Collected'],
-      ['GST Collected', report.gstCollected.toFixed(2)],
-      ['PST Collected', report.pstCollected.toFixed(2)],
-      ['HST Collected', report.hstCollected.toFixed(2)],
-      ['QST Collected', report.qstCollected.toFixed(2)],
-      ['Total Collected', report.totalCollected.toFixed(2)],
-      [],
-      ['Input Tax Credits'],
-      ['GST ITC', report.gstItc.toFixed(2)],
-      ['HST ITC', report.hstItc.toFixed(2)],
-      ['QST ITC', report.qstItc.toFixed(2)],
-      ['Total ITCs', report.totalItc.toFixed(2)],
-      [],
-      ['Net Amounts'],
-      ['Net GST/HST Owing', report.netGstHst.toFixed(2)],
-      ['Net QST Owing', report.netQst.toFixed(2)],
-      ['Total Tax Owing', report.totalOwing.toFixed(2)],
-    ];
-
-    const csv = rows.map((row) => row.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `tax-report-${startDate}-to-${endDate}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+  const taxExportColumns: ExportColumn[] = [
+    { header: 'Category', accessor: (r) => r.category },
+    { header: 'Item', accessor: (r) => r.item },
+    { header: 'Amount', accessor: (r) => `$${r.amount.toFixed(2)}`, align: 'right' },
+  ];
 
   if (isLoading) {
     return (
@@ -196,10 +183,16 @@ export default function TaxReportPage() {
           title="Tax Report"
           description="GST/HST/PST/QST summary for CRA filing"
         />
-        <Button onClick={exportToCSV} variant="outline" disabled={!report}>
-          <Download className="h-4 w-4 mr-2" />
-          Export CSV
-        </Button>
+        <ExportButton
+          data={taxReportRows}
+          columns={taxExportColumns}
+          filename={`tax-report-${startDate}-to-${endDate}`}
+          pdfTitle="Tax Report"
+          pdfSummary={report ? [
+            { label: 'Period', value: `${startDate} to ${endDate}` },
+            { label: 'Total Tax Owing', value: `$${report.totalOwing.toFixed(2)}` },
+          ] : undefined}
+        />
       </div>
 
       {error && (

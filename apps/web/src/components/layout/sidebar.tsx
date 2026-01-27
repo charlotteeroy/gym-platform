@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, CSSProperties } from 'react';
 import { useGymTheme } from '@/components/providers/gym-theme-provider';
 import {
   LayoutDashboard,
@@ -26,6 +26,7 @@ import {
   FileText,
   DollarSign,
   PieChart,
+  Ticket,
   ArrowDownCircle,
   ArrowUpCircle,
   Wrench,
@@ -36,25 +37,25 @@ import {
   ScrollText,
   Tag,
   Calculator,
+  type LucideIcon,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
 
+// ── Types ──────────────────────────────────────────────
 interface NavItem {
   name: string;
   href: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: LucideIcon;
 }
 
 interface NavSubSection {
   name: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: LucideIcon;
   children: NavItem[];
 }
 
 interface NavSection {
   name: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: LucideIcon;
   children: (NavItem | NavSubSection)[];
 }
 
@@ -68,6 +69,20 @@ function isNavSubSection(item: NavItem | NavSubSection): item is NavSubSection {
   return 'children' in item;
 }
 
+// ── Colors ─────────────────────────────────────────────
+const C = {
+  text: '#475569',        // slate-600
+  textDark: '#0f172a',    // slate-900
+  textLight: '#94a3b8',   // slate-400
+  textSub: '#334155',     // slate-700
+  white: '#ffffff',
+  hoverBg: '#f1f5f9',     // slate-100
+  activeBg: '#0f172a',    // slate-900
+  border: 'rgba(226,232,240,0.6)',
+  overlay: 'rgba(0,0,0,0.5)',
+};
+
+// ── Navigation Data ────────────────────────────────────
 const navigation: NavigationItem[] = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Planning', href: '/dashboard/classes', icon: Calendar },
@@ -76,7 +91,14 @@ const navigation: NavigationItem[] = [
     icon: Briefcase,
     children: [
       { name: 'Members', href: '/members', icon: Users },
-      { name: 'Subscriptions', href: '/subscriptions', icon: CreditCard },
+      {
+        name: 'Subscriptions',
+        icon: CreditCard,
+        children: [
+          { name: 'Memberships', href: '/subscriptions/memberships', icon: Tag },
+          { name: 'Passes', href: '/subscriptions/passes', icon: Ticket },
+        ],
+      },
       { name: 'Campaigns', href: '/campaigns', icon: Megaphone },
       { name: 'Opportunities', href: '/opportunities', icon: TrendingUp },
     ],
@@ -116,19 +138,19 @@ const navigation: NavigationItem[] = [
       { name: 'Opening Hours', href: '/admin/gym/hours', icon: Clock },
       { name: 'Branding', href: '/admin/gym/branding', icon: Palette },
       { name: 'Policies', href: '/admin/gym/policies', icon: ScrollText },
-      { name: 'Plans', href: '/admin/plans', icon: Tag },
       { name: 'Staff', href: '/admin/staff', icon: UserCog },
     ],
   },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
 
+// ── Component ──────────────────────────────────────────
 export function Sidebar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [expandedSections, setExpandedSections] = useState<string[]>(['Business']);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
 
-  // Get gym branding
   const { settings: gymSettings } = useGymTheme();
 
   // Auto-expand sections based on current path
@@ -138,13 +160,11 @@ export function Sidebar() {
         let isChildActive = false;
         item.children.forEach((child) => {
           if (isNavSubSection(child)) {
-            // Check nested subsection children
             const isSubChildActive = child.children.some(
               (subChild) => pathname === subChild.href || pathname.startsWith(subChild.href + '/')
             );
             if (isSubChildActive) {
               isChildActive = true;
-              // Also expand the subsection
               if (!expandedSections.includes(`${item.name}/${child.name}`)) {
                 setExpandedSections((prev) => [...prev, `${item.name}/${child.name}`]);
               }
@@ -162,12 +182,8 @@ export function Sidebar() {
     });
   }, [pathname, expandedSections]);
 
-  // Close mobile menu on route change
-  useEffect(() => {
-    setMobileOpen(false);
-  }, [pathname]);
+  useEffect(() => { setMobileOpen(false); }, [pathname]);
 
-  // Close mobile menu on escape key
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setMobileOpen(false);
@@ -176,23 +192,14 @@ export function Sidebar() {
     return () => document.removeEventListener('keydown', handleEscape);
   }, []);
 
-  // Prevent body scroll when mobile menu is open
   useEffect(() => {
-    if (mobileOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-    return () => {
-      document.body.style.overflow = '';
-    };
+    document.body.style.overflow = mobileOpen ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
   }, [mobileOpen]);
 
-  const toggleSection = (sectionName: string) => {
+  const toggleSection = (name: string) => {
     setExpandedSections((prev) =>
-      prev.includes(sectionName)
-        ? prev.filter((name) => name !== sectionName)
-        : [...prev, sectionName]
+      prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]
     );
   };
 
@@ -201,47 +208,47 @@ export function Sidebar() {
     window.location.href = '/login';
   }
 
-  const NavLink = ({ item, nested = false, doubleNested = false }: { item: NavItem; nested?: boolean; doubleNested?: boolean }) => {
-    // For nested items or specific paths, only match exact path
-    // This prevents /admin/billing from matching /admin/billing/payments
+  // ── NavLink ──
+  const NavLink = ({ item, nested, doubleNested }: { item: NavItem; nested?: boolean; doubleNested?: boolean }) => {
     const isActive = pathname === item.href ||
-      (item.href !== '/dashboard' &&
-       item.href !== '/admin/billing' &&
-       pathname.startsWith(item.href + '/'));
+      (item.href !== '/dashboard' && item.href !== '/admin/billing' && pathname.startsWith(item.href + '/'));
     const Icon = item.icon;
+    const hid = `link-${item.href}`;
+    const isHovered = hoveredId === hid;
 
-    const getPadding = () => {
-      if (doubleNested) return '8px 12px 8px 64px';
-      if (nested) return '10px 12px 10px 44px';
-      return '10px 12px';
+    const paddingLeft = doubleNested ? 64 : nested ? 44 : 12;
+    const style: CSSProperties = {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 12,
+      padding: `${doubleNested ? 6 : 8}px 12px`,
+      paddingLeft,
+      borderRadius: 10,
+      fontSize: 14,
+      fontWeight: 500,
+      textDecoration: 'none',
+      minHeight: 36,
+      transition: 'background-color 150ms, color 150ms',
+      color: isActive ? C.white : isHovered ? C.textDark : C.text,
+      backgroundColor: isActive ? C.activeBg : isHovered ? C.hoverBg : 'transparent',
+      boxShadow: isActive ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
     };
 
     return (
       <Link
         href={item.href}
-        className={cn(
-          'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all min-h-[44px] md:min-h-[40px]',
-          nested && 'pl-11',
-          doubleNested && 'pl-16',
-          isActive
-            ? 'bg-slate-900 text-white shadow-sm'
-            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-        )}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
-          padding: getPadding(),
-          textDecoration: 'none'
-        }}
+        style={style}
+        onMouseEnter={() => setHoveredId(hid)}
+        onMouseLeave={() => setHoveredId(null)}
         onClick={() => setMobileOpen(false)}
       >
-        <Icon className={cn(doubleNested ? 'h-4 w-4' : 'h-5 w-5', 'flex-shrink-0', isActive ? 'text-white' : 'text-slate-400')} />
+        <Icon size={doubleNested ? 16 : 20} style={{ flexShrink: 0, color: isActive ? C.white : C.textLight }} />
         <span>{item.name}</span>
       </Link>
     );
   };
 
+  // ── Sub-section button ──
   const NavSubSectionComponent = ({ subSection, parentName }: { subSection: NavSubSection; parentName: string }) => {
     const sectionKey = `${parentName}/${subSection.name}`;
     const isExpanded = expandedSections.includes(sectionKey);
@@ -249,31 +256,47 @@ export function Sidebar() {
       (child) => pathname === child.href || pathname.startsWith(child.href + '/')
     );
     const Icon = subSection.icon;
+    const hid = `sub-${sectionKey}`;
+    const isHovered = hoveredId === hid;
+
+    const btnStyle: CSSProperties = {
+      display: 'flex',
+      width: '100%',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 12,
+      padding: '6px 12px 6px 44px',
+      borderRadius: 10,
+      fontSize: 14,
+      fontWeight: 500,
+      background: isHovered ? C.hoverBg : 'transparent',
+      border: 'none',
+      cursor: 'pointer',
+      textAlign: 'left' as const,
+      transition: 'background-color 150ms, color 150ms',
+      color: isAnyChildActive ? C.textDark : isHovered ? C.textDark : C.text,
+      minHeight: 36,
+    };
 
     return (
-      <div style={{ display: 'block' }}>
+      <div>
         <button
           onClick={() => toggleSection(sectionKey)}
-          className={cn(
-            'w-full flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all min-h-[40px]',
-            isAnyChildActive
-              ? 'text-slate-900'
-              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-          )}
-          style={{ display: 'flex', width: '100%', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '8px 12px 8px 44px', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+          style={btnStyle}
+          onMouseEnter={() => setHoveredId(hid)}
+          onMouseLeave={() => setHoveredId(null)}
         >
-          <div className="flex items-center gap-3" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <Icon className={cn('h-4 w-4 flex-shrink-0', isAnyChildActive ? 'text-slate-700' : 'text-slate-400')} />
+          <span style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <Icon size={16} style={{ flexShrink: 0, color: isAnyChildActive ? C.textSub : C.textLight }} />
             <span>{subSection.name}</span>
-          </div>
-          {isExpanded ? (
-            <ChevronDown className="h-3 w-3 text-slate-400" />
-          ) : (
-            <ChevronRight className="h-3 w-3 text-slate-400" />
-          )}
+          </span>
+          {isExpanded
+            ? <ChevronDown size={12} style={{ color: C.textLight, flexShrink: 0 }} />
+            : <ChevronRight size={12} style={{ color: C.textLight, flexShrink: 0 }} />
+          }
         </button>
         {isExpanded && (
-          <div className="mt-1 space-y-0.5" style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '2px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 1, marginTop: 1 }}>
             {subSection.children.map((child) => (
               <NavLink key={child.name} item={child} nested doubleNested />
             ))}
@@ -283,6 +306,7 @@ export function Sidebar() {
     );
   };
 
+  // ── Section button ──
   const NavSectionComponent = ({ section }: { section: NavSection }) => {
     const isExpanded = expandedSections.includes(section.name);
     const isAnyChildActive = section.children.some((child) => {
@@ -294,31 +318,47 @@ export function Sidebar() {
       return pathname === child.href || pathname.startsWith(child.href + '/');
     });
     const Icon = section.icon;
+    const hid = `sec-${section.name}`;
+    const isHovered = hoveredId === hid;
+
+    const btnStyle: CSSProperties = {
+      display: 'flex',
+      width: '100%',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 12,
+      padding: '8px 12px',
+      borderRadius: 10,
+      fontSize: 14,
+      fontWeight: 500,
+      background: isHovered ? C.hoverBg : 'transparent',
+      border: 'none',
+      cursor: 'pointer',
+      textAlign: 'left' as const,
+      transition: 'background-color 150ms, color 150ms',
+      color: isAnyChildActive ? C.textDark : isHovered ? C.textDark : C.text,
+      minHeight: 36,
+    };
 
     return (
-      <div style={{ display: 'block' }}>
+      <div>
         <button
           onClick={() => toggleSection(section.name)}
-          className={cn(
-            'w-full flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all min-h-[44px] md:min-h-[40px]',
-            isAnyChildActive
-              ? 'text-slate-900'
-              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-          )}
-          style={{ display: 'flex', width: '100%', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '10px 12px', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+          style={btnStyle}
+          onMouseEnter={() => setHoveredId(hid)}
+          onMouseLeave={() => setHoveredId(null)}
         >
-          <div className="flex items-center gap-3" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <Icon className={cn('h-5 w-5 flex-shrink-0', isAnyChildActive ? 'text-slate-900' : 'text-slate-400')} />
+          <span style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <Icon size={20} style={{ flexShrink: 0, color: isAnyChildActive ? C.textDark : C.textLight }} />
             <span>{section.name}</span>
-          </div>
-          {isExpanded ? (
-            <ChevronDown className="h-4 w-4 text-slate-400" />
-          ) : (
-            <ChevronRight className="h-4 w-4 text-slate-400" />
-          )}
+          </span>
+          {isExpanded
+            ? <ChevronDown size={16} style={{ color: C.textLight, flexShrink: 0 }} />
+            : <ChevronRight size={16} style={{ color: C.textLight, flexShrink: 0 }} />
+          }
         </button>
         {isExpanded && (
-          <div className="mt-1 space-y-0.5" style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '4px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 1, marginTop: 2 }}>
             {section.children.map((child) =>
               isNavSubSection(child) ? (
                 <NavSubSectionComponent key={child.name} subSection={child} parentName={section.name} />
@@ -332,118 +372,154 @@ export function Sidebar() {
     );
   };
 
-  const SidebarContent = () => (
-    <>
-      <div className="flex h-16 items-center gap-3 px-5 border-b border-slate-200/60" style={{ display: 'flex', height: '64px', alignItems: 'center', gap: '12px', padding: '0 20px', borderBottom: '1px solid #e2e8f0' }}>
-        <div className="w-9 h-9 rounded-xl bg-slate-900 flex items-center justify-center overflow-hidden" style={{ width: '36px', height: '36px', borderRadius: '12px', backgroundColor: gymSettings.logoUrl ? 'transparent' : '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {gymSettings.logoUrl ? (
-            <img src={gymSettings.logoUrl} alt={gymSettings.name} className="w-full h-full object-cover" />
-          ) : (
-            <Dumbbell className="h-5 w-5 text-white" />
-          )}
-        </div>
-        <span className="font-bold text-lg text-slate-900 tracking-tight truncate" style={{ fontWeight: 700, fontSize: '18px', color: '#0f172a' }}>{gymSettings.name}</span>
-      </div>
+  // ── Navigation list ──
+  const NavList = () => (
+    <nav style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, padding: '12px 12px', overflowY: 'auto' }}>
+      {navigation.map((item) =>
+        isNavSection(item) ? (
+          <NavSectionComponent key={item.name} section={item} />
+        ) : (
+          <NavLink key={item.name} item={item} />
+        )
+      )}
+    </nav>
+  );
 
-      <nav className="flex-1 space-y-1 p-4 overflow-y-auto" style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1, padding: '16px' }}>
-        {navigation.map((item) =>
-          isNavSection(item) ? (
-            <NavSectionComponent key={item.name} section={item} />
-          ) : (
-            <NavLink key={item.name} item={item} />
-          )
-        )}
-      </nav>
-
-      <div className="border-t border-slate-200/60 p-4">
-        <Button
-          variant="ghost"
-          className="w-full justify-start gap-3 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl min-h-[40px]"
+  // ── Sign-out button ──
+  const SignOutBtn = () => {
+    const hid = 'signout';
+    const isHovered = hoveredId === hid;
+    return (
+      <div style={{ borderTop: `1px solid ${C.border}`, padding: 16 }}>
+        <button
           onClick={handleLogout}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            width: '100%',
+            padding: '8px 12px',
+            borderRadius: 10,
+            fontSize: 14,
+            fontWeight: 500,
+            background: isHovered ? C.hoverBg : 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            textAlign: 'left' as const,
+            color: isHovered ? C.textDark : C.text,
+            transition: 'background-color 150ms, color 150ms',
+            minHeight: 36,
+          }}
+          onMouseEnter={() => setHoveredId(hid)}
+          onMouseLeave={() => setHoveredId(null)}
         >
-          <LogOut className="h-5 w-5 flex-shrink-0" />
+          <LogOut size={20} style={{ flexShrink: 0 }} />
           <span>Sign out</span>
-        </Button>
+        </button>
       </div>
-    </>
+    );
+  };
+
+  // ── Gym logo helper ──
+  const GymLogo = ({ size }: { size: number }) => (
+    <div
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size > 32 ? 12 : 8,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'hidden',
+        backgroundColor: gymSettings.logoUrl ? 'transparent' : C.activeBg,
+        flexShrink: 0,
+      }}
+    >
+      {gymSettings.logoUrl ? (
+        <img src={gymSettings.logoUrl} alt={gymSettings.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      ) : (
+        <Dumbbell size={size > 32 ? 20 : 16} style={{ color: C.white }} />
+      )}
+    </div>
   );
 
   return (
     <>
-      {/* Mobile Header Bar - only visible on mobile */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-40 flex h-14 items-center justify-between border-b border-slate-200/60 bg-white/95 backdrop-blur-sm px-4">
-        <div className="flex items-center gap-2.5">
-          <div
-            className="w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden"
-            style={{ backgroundColor: gymSettings.logoUrl ? 'transparent' : '#0f172a' }}
-          >
-            {gymSettings.logoUrl ? (
-              <img src={gymSettings.logoUrl} alt={gymSettings.name} className="w-full h-full object-cover" />
-            ) : (
-              <Dumbbell className="h-4 w-4 text-white" />
-            )}
-          </div>
-          <span className="font-bold text-base text-slate-900 tracking-tight truncate">{gymSettings.name}</span>
+      {/* ── Mobile Header Bar ── */}
+      <div
+        className="md:hidden"
+        style={{
+          position: 'fixed', top: 0, left: 0, right: 0, zIndex: 40,
+          display: 'flex', height: 56, alignItems: 'center', justifyContent: 'space-between',
+          borderBottom: `1px solid ${C.border}`,
+          backgroundColor: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(8px)',
+          padding: '0 16px',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <GymLogo size={32} />
+          <span style={{ fontWeight: 700, fontSize: 16, color: C.textDark }}>{gymSettings.name}</span>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-10 w-10 rounded-xl hover:bg-slate-100"
+        <button
           onClick={() => setMobileOpen(!mobileOpen)}
           aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
+          style={{
+            width: 40, height: 40, borderRadius: 12,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'transparent', border: 'none', cursor: 'pointer',
+          }}
         >
-          {mobileOpen ? <X className="h-5 w-5 text-slate-600" /> : <Menu className="h-5 w-5 text-slate-600" />}
-        </Button>
+          {mobileOpen ? <X size={20} style={{ color: C.text }} /> : <Menu size={20} style={{ color: C.text }} />}
+        </button>
       </div>
 
-      {/* Mobile Overlay - only on mobile when menu is open */}
+      {/* ── Mobile Overlay ── */}
       {mobileOpen && (
         <div
-          className="md:hidden fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+          className="md:hidden"
           onClick={() => setMobileOpen(false)}
           aria-hidden="true"
+          style={{ position: 'fixed', inset: 0, zIndex: 40, backgroundColor: C.overlay, backdropFilter: 'blur(4px)' }}
         />
       )}
 
-      {/* Mobile Sidebar Drawer - only on mobile */}
+      {/* ── Mobile Drawer ── */}
       <div
-        className={cn(
-          'md:hidden fixed top-14 left-0 bottom-0 z-50 w-72 bg-white border-r border-slate-200/60 transform transition-transform duration-200 ease-in-out',
-          mobileOpen ? 'translate-x-0' : '-translate-x-full'
-        )}
+        className="md:hidden"
+        style={{
+          position: 'fixed', top: 56, left: 0, bottom: 0, zIndex: 50,
+          width: 288, backgroundColor: C.white, borderRight: `1px solid ${C.border}`,
+          transform: mobileOpen ? 'translateX(0)' : 'translateX(-100%)',
+          transition: 'transform 200ms ease-in-out',
+          display: 'flex', flexDirection: 'column',
+        }}
       >
-        <div className="flex h-full flex-col overflow-hidden">
-          <nav className="flex-1 space-y-1 p-4 overflow-y-auto">
-            {navigation.map((item) =>
-              isNavSection(item) ? (
-                <NavSectionComponent key={item.name} section={item} />
-              ) : (
-                <NavLink key={item.name} item={item} />
-              )
-            )}
-          </nav>
-          <div className="border-t border-slate-200/60 p-4">
-            <Button
-              variant="ghost"
-              className="w-full justify-start gap-3 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl min-h-[44px]"
-              onClick={handleLogout}
-            >
-              <LogOut className="h-5 w-5 flex-shrink-0" />
-              <span>Sign out</span>
-            </Button>
-          </div>
-        </div>
+        <NavList />
+        <SignOutBtn />
       </div>
 
-      {/* Desktop Sidebar - hidden on mobile, visible on md+ */}
-      <aside className="desktop-sidebar-container h-full w-64 flex-col border-r border-slate-200/60 bg-white">
-        <SidebarContent />
+      {/* ── Desktop Sidebar ── */}
+      <aside
+        className="desktop-sidebar-container"
+        style={{
+          height: '100%', width: 256, flexDirection: 'column', flexShrink: 0,
+          borderRight: `1px solid ${C.border}`, backgroundColor: C.white,
+        }}
+      >
+        {/* Header */}
+        <div style={{ display: 'flex', height: 64, alignItems: 'center', gap: 12, padding: '0 20px', borderBottom: `1px solid ${C.border}` }}>
+          <GymLogo size={36} />
+          <span style={{ fontWeight: 700, fontSize: 18, color: C.textDark, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {gymSettings.name}
+          </span>
+        </div>
+        <NavList />
+        <SignOutBtn />
       </aside>
     </>
   );
 }
 
-// Export MobileHeader for use in layout
 export function MobileHeaderSpacer() {
   return <div className="h-14 md:hidden" />;
 }

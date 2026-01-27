@@ -23,6 +23,8 @@ import {
 } from 'lucide-react';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
+import { ExportButton } from '@/components/ui/export-button';
+import { type ExportColumn } from '@/lib/export';
 import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
@@ -371,6 +373,14 @@ export default function PayrollPage() {
     return `${startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
   };
 
+  const payrollExportColumns: ExportColumn[] = [
+    { header: 'Period', accessor: (p) => formatDateRange(p.startDate, p.endDate) },
+    { header: 'Status', accessor: (p) => p.status },
+    { header: 'Entries', accessor: (p) => p._count?.entries || 0 },
+    { header: 'Total Amount', accessor: (p) => formatCurrency(Number(p.totalAmount)), align: 'right' },
+    { header: 'Created', accessor: (p) => formatDate(p.createdAt) },
+  ];
+
   // Calculate totals for period detail
   const totalBase = periodDetail?.entries.reduce((sum, e) => sum + e.baseAmount, 0) || 0;
   const totalCommissions = periodDetail?.entries.reduce((sum, e) => sum + e.commissionsAmount, 0) || 0;
@@ -393,6 +403,16 @@ export default function PayrollPage() {
               <Link href="/admin/billing">
                 <Button variant="outline">Back to Accounting</Button>
               </Link>
+              <ExportButton
+                data={periods}
+                columns={payrollExportColumns}
+                filename="payroll"
+                pdfTitle="Payroll Report"
+                pdfSummary={[
+                  { label: 'Total Periods', value: `${periods.length}` },
+                  { label: 'Total Amount', value: formatCurrency(periods.reduce((sum, p) => sum + Number(p.totalAmount), 0)) },
+                ]}
+              />
               <Button onClick={() => setShowCreateModal(true)}>
                 <Plus className="mr-2 h-4 w-4" />
                 New Period

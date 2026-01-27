@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { Plus, Search, UserCog, MoreHorizontal, Loader2, Mail, Phone, DollarSign, X, Award, Instagram, Linkedin, Eye, EyeOff } from 'lucide-react';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
+import { ExportButton } from '@/components/ui/export-button';
+import { type ExportColumn } from '@/lib/export';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -247,6 +249,17 @@ export default function StaffPage() {
     );
   };
 
+  const staffExportColumns: ExportColumn[] = [
+    { header: 'First Name', accessor: (s) => s.firstName },
+    { header: 'Last Name', accessor: (s) => s.lastName },
+    { header: 'Email', accessor: (s) => s.email },
+    { header: 'Phone', accessor: (s) => s.phone || '' },
+    { header: 'Role', accessor: (s) => s.role },
+    { header: 'Status', accessor: (s) => s.isActive ? 'Active' : 'Inactive' },
+    { header: 'Hourly Rate', accessor: (s) => s.hourlyRate ? `$${Number(s.hourlyRate).toFixed(2)}` : '', align: 'right' },
+    { header: 'Specialties', accessor: (s) => (s.specialties || []).join(', ') },
+  ];
+
   const filteredStaff = staff.filter((member) => {
     if (!search) return true;
     const searchLower = search.toLowerCase();
@@ -342,6 +355,16 @@ export default function StaffPage() {
                 <option key={r.value} value={r.value}>{r.label}</option>
               ))}
             </select>
+
+            <ExportButton
+              data={filteredStaff}
+              columns={staffExportColumns}
+              filename="staff"
+              pdfTitle="Staff Report"
+              pdfSummary={[
+                { label: 'Total Staff', value: `${filteredStaff.length}` },
+              ]}
+            />
 
             <Button onClick={openAddModal} className="bg-slate-900 hover:bg-slate-800 rounded-xl">
               <Plus className="mr-2 h-4 w-4" />

@@ -2,9 +2,30 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Ticket, Plus, X, Clock, AlertTriangle } from 'lucide-react';
 import { MemberProfileHeader, MemberStatsCards, MemberTagsManager, MemberTimeline } from '@/components/members';
 import { ActivityLineChart, HourHeatmap } from '@/components/charts';
+
+interface MemberPass {
+  id: string;
+  status: 'ACTIVE' | 'EXPIRED' | 'DEPLETED' | 'CANCELLED';
+  creditsTotal: number;
+  creditsRemaining: number;
+  activatedAt: string;
+  expiresAt: string | null;
+  product: { id: string; name: string; type: string };
+}
+
+interface PassProduct {
+  id: string;
+  name: string;
+  description: string | null;
+  priceAmount: number;
+  type: 'CLASS_PACK' | 'DROP_IN';
+  classCredits: number | null;
+  validityDays: number | null;
+  isActive: boolean;
+}
 
 interface Tag {
   id: string;
@@ -67,6 +88,13 @@ export default function MemberProfilePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Passes state
+  const [memberPasses, setMemberPasses] = useState<MemberPass[]>([]);
+  const [passProducts, setPassProducts] = useState<PassProduct[]>([]);
+  const [showAssignPassModal, setShowAssignPassModal] = useState(false);
+  const [assigningPass, setAssigningPass] = useState(false);
+  const [selectedProductId, setSelectedProductId] = useState('');
+
   const fetchProfile = useCallback(async () => {
     try {
       const res = await fetch(`/api/members/${memberId}/profile`);
@@ -105,11 +133,35 @@ export default function MemberProfilePage() {
     }
   }, []);
 
+  const fetchMemberPasses = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/members/${memberId}/passes`);
+      const result = await res.json();
+      if (result.success) {
+        setMemberPasses(result.data);
+      }
+    } catch {
+      // Passes are optional
+    }
+  }, [memberId]);
+
+  const fetchPassProducts = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/passes');
+      const result = await res.json();
+      if (result.success) {
+        setPassProducts(result.data.filter((p: PassProduct) => p.isActive));
+      }
+    } catch {
+      // Pass products are optional
+    }
+  }, []);
+
   useEffect(() => {
-    Promise.all([fetchProfile(), fetchAnalytics(), fetchTags()]).finally(() => {
+    Promise.all([fetchProfile(), fetchAnalytics(), fetchTags(), fetchMemberPasses(), fetchPassProducts()]).finally(() => {
       setLoading(false);
     });
-  }, [fetchProfile, fetchAnalytics, fetchTags]);
+  }, [fetchProfile, fetchAnalytics, fetchTags, fetchMemberPasses, fetchPassProducts]);
 
   const handleCheckIn = async () => {
     try {
@@ -151,6 +203,30 @@ export default function MemberProfilePage() {
       await fetchProfile();
     } else {
       throw new Error(result.error?.message || 'Failed to remove tag');
+    }
+  };
+
+  const handleAssignPass = async () => {
+    if (!selectedProductId) return;
+    setAssigningPass(true);
+    try {
+      const res = await fetch(`/api/members/${memberId}/passes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productId: selectedProductId }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        setShowAssignPassModal(false);
+        setSelectedProductId('');
+        await fetchMemberPasses();
+      } else {
+        alert(result.error?.message || 'Failed to assign pass');
+      }
+    } catch {
+      alert('Failed to assign pass');
+    } finally {
+      setAssigningPass(false);
     }
   };
 
@@ -259,6 +335,87 @@ export default function MemberProfilePage() {
             </div>
           )}
 
+          {/* Passes & Credits */}
+          <div className="bg-white rounded-lg border border-slate-200 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-semibold text-slate-900 flex items-center gap-2">
+                <Ticket className="w-4 h-4" />
+                Passes & Credits
+              </h3>
+              <button
+                onClick={() => setShowAssignPassModal(true)}
+                className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-700 font-medium"
+              >
+                <Plus className="w-3 h-3" />
+                Assign Pass
+              </button>
+            </div>
+
+            {memberPasses.length === 0 ? (
+              <p className="text-sm text-slate-500">No passes assigned.</p>
+            ) : (
+              <div className="space-y-3">
+                {memberPasses.map((pass) => {
+                  const pct = pass.creditsTotal > 0
+                    ? Math.round((pass.creditsRemaining / pass.creditsTotal) * 100)
+                    : 0;
+                  const isExpiringSoon = pass.expiresAt &&
+                    new Date(pass.expiresAt).getTime() - Date.now() < 7 * 24 * 60 * 60 * 1000;
+
+                  return (
+                    <div key={pass.id} className="border border-slate-100 rounded-lg p-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-medium text-slate-900">
+                          {pass.product.name}
+                        </span>
+                        <span className={`text-xs px-2 py-0.5 rounded ${
+                          pass.status === 'ACTIVE'
+                            ? 'bg-green-100 text-green-700'
+                            : pass.status === 'DEPLETED'
+                            ? 'bg-slate-100 text-slate-500'
+                            : pass.status === 'EXPIRED'
+                            ? 'bg-red-100 text-red-600'
+                            : 'bg-slate-100 text-slate-500'
+                        }`}>
+                          {pass.status}
+                        </span>
+                      </div>
+
+                      {/* Credit bar */}
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${
+                              pct > 50 ? 'bg-indigo-500' : pct > 20 ? 'bg-amber-500' : 'bg-red-500'
+                            }`}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                        <span className="text-xs font-medium text-slate-600 whitespace-nowrap">
+                          {pass.creditsRemaining}/{pass.creditsTotal}
+                        </span>
+                      </div>
+
+                      {/* Expiry info */}
+                      {pass.expiresAt && (
+                        <div className={`flex items-center gap-1 text-xs ${
+                          isExpiringSoon ? 'text-amber-600' : 'text-slate-400'
+                        }`}>
+                          {isExpiringSoon ? (
+                            <AlertTriangle className="w-3 h-3" />
+                          ) : (
+                            <Clock className="w-3 h-3" />
+                          )}
+                          Expires {new Date(pass.expiresAt).toLocaleDateString()}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
           {/* Recent Activity Timeline */}
           <MemberTimeline activities={profile.recentActivity} />
 
@@ -294,6 +451,60 @@ export default function MemberProfilePage() {
           )}
         </div>
       </div>
+
+      {/* Assign Pass Modal */}
+      {showAssignPassModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setShowAssignPassModal(false)} />
+          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md mx-4">
+            <div className="flex items-center justify-between p-5 border-b border-slate-100">
+              <h2 className="text-lg font-semibold text-slate-900">Assign Pass</h2>
+              <button onClick={() => setShowAssignPassModal(false)} className="p-2 hover:bg-slate-100 rounded-lg">
+                <X className="w-5 h-5 text-slate-500" />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              {passProducts.length === 0 ? (
+                <p className="text-sm text-slate-500">No active pass products available. Create one in Admin &gt; Plans.</p>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-700">Select Pass Product</label>
+                    <select
+                      value={selectedProductId}
+                      onChange={(e) => setSelectedProductId(e.target.value)}
+                      className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+                    >
+                      <option value="">Choose a pass...</option>
+                      {passProducts.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} — {p.classCredits ?? 1} credit{(p.classCredits ?? 1) !== 1 ? 's' : ''}
+                          {p.validityDays ? ` (${p.validityDays} days)` : ''} — ${Number(p.priceAmount).toFixed(2)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex justify-end gap-3">
+                    <button
+                      onClick={() => setShowAssignPassModal(false)}
+                      className="px-4 py-2 text-sm rounded-xl border border-slate-200 hover:bg-slate-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleAssignPass}
+                      disabled={!selectedProductId || assigningPass}
+                      className="px-4 py-2 text-sm rounded-xl bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50"
+                    >
+                      {assigningPass ? 'Assigning...' : 'Assign Pass'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

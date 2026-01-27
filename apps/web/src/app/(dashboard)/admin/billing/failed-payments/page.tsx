@@ -20,6 +20,8 @@ import {
 } from 'lucide-react';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
+import { ExportButton } from '@/components/ui/export-button';
+import { type ExportColumn } from '@/lib/export';
 import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
@@ -175,6 +177,18 @@ export default function FailedPaymentsPage() {
     });
   };
 
+  const failedPaymentExportColumns: ExportColumn[] = [
+    { header: 'Member', accessor: (p) => `${p.member.firstName} ${p.member.lastName}` },
+    { header: 'Email', accessor: (p) => p.member.email },
+    { header: 'Plan', accessor: (p) => p.subscription?.plan?.name || '' },
+    { header: 'Amount', accessor: (p) => formatCurrency(Number(p.amount)), align: 'right' },
+    { header: 'Status', accessor: (p) => p.status },
+    { header: 'Attempts', accessor: (p) => `${p.attemptNumber}/4` },
+    { header: 'Failure Reason', accessor: (p) => p.failureMessage || p.failureCode || '' },
+    { header: 'Failed Date', accessor: (p) => formatDate(p.createdAt) },
+    { header: 'Next Retry', accessor: (p) => p.nextRetryAt ? formatDate(p.nextRetryAt) : '' },
+  ];
+
   const filteredPayments = failedPayments.filter((payment) => {
     if (!search) return true;
     const searchLower = search.toLowerCase();
@@ -285,6 +299,17 @@ export default function FailedPaymentsPage() {
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
+
+            <ExportButton
+              data={filteredPayments}
+              columns={failedPaymentExportColumns}
+              filename="failed-payments"
+              pdfTitle="Failed Payments Report"
+              pdfSummary={[
+                { label: 'Total Failed', value: `${filteredPayments.length}` },
+                { label: 'Total Amount', value: formatCurrency(filteredPayments.reduce((sum, p) => sum + Number(p.amount), 0)) },
+              ]}
+            />
           </div>
 
           {/* Table */}

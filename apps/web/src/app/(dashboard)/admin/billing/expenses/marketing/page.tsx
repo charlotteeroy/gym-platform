@@ -15,6 +15,8 @@ import {
 } from 'lucide-react';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
+import { ExportButton } from '@/components/ui/export-button';
+import { type ExportColumn } from '@/lib/export';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -170,6 +172,13 @@ export default function MarketingExpensesPage() {
     });
   };
 
+  const marketingExportColumns: ExportColumn[] = [
+    { header: 'Date', accessor: (e) => formatDate(e.date) },
+    { header: 'Description', accessor: (e) => e.description || '' },
+    { header: 'Channel/Platform', accessor: (e) => e.vendor || '' },
+    { header: 'Amount', accessor: (e) => formatCurrency(Number(e.amount)), align: 'right' },
+  ];
+
   const totalMarketing = expenses.reduce((sum, exp) => sum + Number(exp.amount), 0);
   const thisMonthMarketing = expenses
     .filter(e => {
@@ -288,10 +297,22 @@ export default function MarketingExpensesPage() {
               <p className="text-sm text-slate-500">{expenses.length} entries</p>
             </div>
           </div>
-          <Button onClick={() => openModal()} className="bg-slate-900 hover:bg-slate-800 rounded-xl">
-            <Plus className="mr-2 h-4 w-4" />
-            Add Expense
-          </Button>
+          <div className="flex gap-2">
+            <ExportButton
+              data={expenses}
+              columns={marketingExportColumns}
+              filename="marketing-expenses"
+              pdfTitle="Marketing Expenses Report"
+              pdfSummary={[
+                { label: 'Total Entries', value: `${expenses.length}` },
+                { label: 'Total Amount', value: formatCurrency(totalMarketing) },
+              ]}
+            />
+            <Button onClick={() => openModal()} className="bg-slate-900 hover:bg-slate-800 rounded-xl">
+              <Plus className="mr-2 h-4 w-4" />
+              Add Expense
+            </Button>
+          </div>
         </div>
 
         {/* Content */}

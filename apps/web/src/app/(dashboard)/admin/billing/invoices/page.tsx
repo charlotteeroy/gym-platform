@@ -31,6 +31,8 @@ import {
 } from 'lucide-react';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
+import { ExportButton } from '@/components/ui/export-button';
+import { type ExportColumn } from '@/lib/export';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -440,33 +442,17 @@ export default function InvoicesPage() {
     }
   };
 
-  const exportInvoices = () => {
-    const data = filteredInvoices.map(i => ({
-      'Invoice #': i.invoiceNumber,
-      'Member': `${i.member.firstName} ${i.member.lastName}`,
-      'Email': i.member.email,
-      'Status': i.status,
-      'Created': formatDate(i.createdAt),
-      'Due Date': formatDate(i.dueDate),
-      'Subtotal': Number(i.subtotal),
-      'Tax': Number(i.tax),
-      'Total': Number(i.total),
-    }));
-
-    const headers = Object.keys(data[0] || {});
-    const csv = [
-      headers.join(','),
-      ...data.map(row => headers.map(h => `"${row[h as keyof typeof row]}"`).join(','))
-    ].join('\n');
-
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `invoices-${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+  const invoiceExportColumns: ExportColumn[] = [
+    { header: 'Invoice #', accessor: (i) => i.invoiceNumber },
+    { header: 'Member', accessor: (i) => `${i.member.firstName} ${i.member.lastName}` },
+    { header: 'Email', accessor: (i) => i.member.email },
+    { header: 'Status', accessor: (i) => i.status },
+    { header: 'Created', accessor: (i) => formatDate(i.createdAt) },
+    { header: 'Due Date', accessor: (i) => formatDate(i.dueDate) },
+    { header: 'Subtotal', accessor: (i) => Number(i.subtotal).toFixed(2), align: 'right' },
+    { header: 'Tax', accessor: (i) => Number(i.tax).toFixed(2), align: 'right' },
+    { header: 'Total', accessor: (i) => formatCurrency(Number(i.total)), align: 'right' },
+  ];
 
   const addLineItem = () => {
     setInvoiceForm({
@@ -655,10 +641,16 @@ export default function InvoicesPage() {
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              <Button variant="outline" onClick={exportInvoices} className="rounded-xl">
-                <Download className="w-4 h-4 mr-2" />
-                Export
-              </Button>
+              <ExportButton
+                data={filteredInvoices}
+                columns={invoiceExportColumns}
+                filename="invoices"
+                pdfTitle="Invoices Report"
+                pdfSummary={[
+                  { label: 'Total Invoices', value: `${filteredInvoices.length}` },
+                  { label: 'Total Amount', value: formatCurrency(filteredInvoices.reduce((sum, i) => sum + Number(i.total), 0)) },
+                ]}
+              />
 
               <Button onClick={() => openModal()} className="bg-slate-900 hover:bg-slate-800 rounded-xl">
                 <Plus className="mr-2 h-4 w-4" />

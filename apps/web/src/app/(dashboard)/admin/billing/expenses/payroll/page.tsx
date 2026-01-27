@@ -14,6 +14,8 @@ import {
 } from 'lucide-react';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
+import { ExportButton } from '@/components/ui/export-button';
+import { type ExportColumn } from '@/lib/export';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -187,6 +189,13 @@ export default function PayrollExpensesPage() {
     });
   };
 
+  const payrollExpenseExportColumns: ExportColumn[] = [
+    { header: 'Date', accessor: (e) => formatDate(e.date) },
+    { header: 'Description', accessor: (e) => e.description || '' },
+    { header: 'Staff', accessor: (e) => e.staff ? `${e.staff.firstName} ${e.staff.lastName}` : '' },
+    { header: 'Amount', accessor: (e) => formatCurrency(Number(e.amount)), align: 'right' },
+  ];
+
   const totalPayroll = expenses.reduce((sum, exp) => sum + Number(exp.amount), 0);
   const thisMonthPayroll = expenses
     .filter(e => {
@@ -279,10 +288,22 @@ export default function PayrollExpensesPage() {
               <p className="text-sm text-slate-500">{expenses.length} entries</p>
             </div>
           </div>
-          <Button onClick={() => openModal()} className="bg-slate-900 hover:bg-slate-800 rounded-xl">
-            <Plus className="mr-2 h-4 w-4" />
-            Add Payment
-          </Button>
+          <div className="flex gap-2">
+            <ExportButton
+              data={expenses}
+              columns={payrollExpenseExportColumns}
+              filename="payroll-expenses"
+              pdfTitle="Payroll Expenses Report"
+              pdfSummary={[
+                { label: 'Total Entries', value: `${expenses.length}` },
+                { label: 'Total Amount', value: formatCurrency(totalPayroll) },
+              ]}
+            />
+            <Button onClick={() => openModal()} className="bg-slate-900 hover:bg-slate-800 rounded-xl">
+              <Plus className="mr-2 h-4 w-4" />
+              Add Payment
+            </Button>
+          </div>
         </div>
 
         {/* Content */}

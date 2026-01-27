@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { Plus, Search, MoreHorizontal, UserPlus, Loader2, Users, AlertTriangle, Clock, Sparkles } from 'lucide-react';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
+import { ExportButton } from '@/components/ui/export-button';
+import { type ExportColumn } from '@/lib/export';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -142,6 +144,16 @@ export default function MembersPage() {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
+
+  const memberExportColumns: ExportColumn[] = [
+    { header: 'First Name', accessor: (m) => m.firstName },
+    { header: 'Last Name', accessor: (m) => m.lastName },
+    { header: 'Email', accessor: (m) => m.email },
+    { header: 'Status', accessor: (m) => m.status },
+    { header: 'Visits (30 days)', accessor: (m) => m.visitCount || 0 },
+    { header: 'Tags', accessor: (m) => (m.tags || []).map((t: any) => t.tag?.name || t.name).join(', ') },
+    { header: 'Joined', accessor: (m) => formatDate(m.createdAt || m.joinedAt) },
+  ];
 
   const getStatusBadge = (status: string) => (
     <span
@@ -398,6 +410,15 @@ export default function MembersPage() {
               <option value="visitCount-asc">Least Active</option>
               <option value="firstName-asc">A-Z</option>
             </select>
+            <ExportButton
+              data={members}
+              columns={memberExportColumns}
+              filename="members"
+              pdfTitle="Members Report"
+              pdfSummary={[
+                { label: 'Total Members', value: `${members.length}` },
+              ]}
+            />
             <Button
               onClick={() => setIsAddMemberOpen(true)}
               className="h-11 px-5 bg-slate-900 hover:bg-slate-800 rounded-xl whitespace-nowrap"

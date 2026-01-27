@@ -1,6 +1,7 @@
 import { getMemberById, checkInMember } from '@gym/core';
 import { getSession, getCurrentStaff } from '@/lib/auth';
 import { apiSuccess, apiError, apiUnauthorized, apiForbidden, apiNotFound } from '@/lib/api';
+import { CheckInMethod } from '@gym/database';
 
 // POST /api/members/[id]/check-in - Check in a member
 export async function POST(
@@ -26,7 +27,29 @@ export async function POST(
       return apiForbidden('You do not have access to this member');
     }
 
-    const result = await checkInMember(id);
+    // Parse optional body for pass-based check-in
+    let options: {
+      memberPassId?: string;
+      isOverride?: boolean;
+      overrideBy?: string;
+      notes?: string;
+    } | undefined;
+
+    try {
+      const body = await request.json();
+      if (body) {
+        options = {
+          memberPassId: body.memberPassId,
+          isOverride: body.isOverride,
+          overrideBy: body.isOverride ? staff.id : undefined,
+          notes: body.notes,
+        };
+      }
+    } catch {
+      // No body is fine — regular check-in
+    }
+
+    const result = await checkInMember(id, CheckInMethod.MANUAL, options);
 
     if (!result || !result.success) {
       return apiError(result?.error || { code: 'CHECKIN_FAILED', message: 'Failed to check in member' }, 400);

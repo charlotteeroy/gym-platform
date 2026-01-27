@@ -1,15 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import {
   DollarSign,
   TrendingUp,
-  TrendingDown,
   CreditCard,
-  FileText,
   AlertTriangle,
-  Wallet,
   ArrowRight,
   Loader2,
   Clock,
@@ -18,7 +15,6 @@ import {
   RefreshCw,
   Users,
   Calendar,
-  Download,
   PieChart,
   BarChart3,
   ArrowUpRight,
@@ -31,16 +27,18 @@ import {
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
 import { ForecastCards, ChurnRiskPanel, RevenueChart, ScenarioModal } from '@/components/admin';
+import { ExportButton } from '@/components/ui/export-button';
+import { type ExportColumn } from '@/lib/export';
 
 interface BillingStats {
   mrr: number;
-  thisMonthRevenue: number;
-  lastMonthRevenue: number;
+  periodRevenue: number;
+  comparisonRevenue: number;
   outstanding: number;
   expectedNextMonth: number;
   activeSubscriptions: number;
-  newSubscriptionsThisMonth: number;
-  churnedThisMonth: number;
+  newInPeriod: number;
+  churnedInPeriod: number;
   avgRevenuePerMember: number;
   failedPaymentsCount: number;
   overdueInvoicesCount: number;
@@ -131,11 +129,186 @@ interface ForecastData {
   }[];
 }
 
+// Date filtering types and helpers
+type DatePreset = 'today' | 'this_week' | 'this_month' | 'this_quarter' | 'this_year' | 'last_month' | 'last_year' | 'custom';
+
+const DATE_PRESETS: { value: DatePreset; label: string }[] = [
+  { value: 'today', label: 'Today' },
+  { value: 'this_week', label: 'Week' },
+  { value: 'this_month', label: 'Month' },
+  { value: 'this_quarter', label: 'Quarter' },
+  { value: 'this_year', label: 'Year' },
+  { value: 'last_month', label: 'Last Month' },
+  { value: 'last_year', label: 'Last Year' },
+  { value: 'custom', label: 'Custom' },
+];
+
+function getDateRange(preset: DatePreset, customStart?: string, customEnd?: string): { start: Date; end: Date } {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  switch (preset) {
+    case 'today':
+      return { start: today, end: now };
+    case 'this_week': {
+      const weekStart = new Date(today);
+      weekStart.setDate(today.getDate() - today.getDay());
+      return { start: weekStart, end: now };
+    }
+    case 'this_month':
+      return { start: new Date(now.getFullYear(), now.getMonth(), 1), end: now };
+    case 'this_quarter': {
+      const qMonth = Math.floor(now.getMonth() / 3) * 3;
+      return { start: new Date(now.getFullYear(), qMonth, 1), end: now };
+    }
+    case 'this_year':
+      return { start: new Date(now.getFullYear(), 0, 1), end: now };
+    case 'last_month':
+      return {
+        start: new Date(now.getFullYear(), now.getMonth() - 1, 1),
+        end: new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59),
+      };
+    case 'last_year':
+      return {
+        start: new Date(now.getFullYear() - 1, 0, 1),
+        end: new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59),
+      };
+    case 'custom':
+      return {
+        start: customStart ? new Date(customStart) : new Date(now.getFullYear(), now.getMonth(), 1),
+        end: customEnd ? new Date(customEnd + 'T23:59:59') : now,
+      };
+  }
+}
+
+function getComparisonRange(range: { start: Date; end: Date }): { start: Date; end: Date } {
+  const duration = range.end.getTime() - range.start.getTime();
+  return {
+    start: new Date(range.start.getTime() - duration - 1),
+    end: new Date(range.start.getTime() - 1),
+  };
+}
+
+function getPeriodLabel(preset: DatePreset): string {
+  switch (preset) {
+    case 'today': return "Today's";
+    case 'this_week': return "This Week's";
+    case 'this_month': return "This Month's";
+    case 'this_quarter': return "This Quarter's";
+    case 'this_year': return "This Year's";
+    case 'last_month': return "Last Month's";
+    case 'last_year': return "Last Year's";
+    case 'custom': return "Period";
+  }
+}
+
+// Synthetic data generation
+function generateSyntheticData() {
+  const now = new Date();
+  const firstNames = ['Emma', 'Liam', 'Olivia', 'Noah', 'Ava', 'Ethan', 'Sophia', 'Mason', 'Isabella', 'Logan', 'Mia', 'Lucas', 'Charlotte', 'James', 'Amelia', 'Benjamin', 'Harper', 'Elijah', 'Evelyn', 'Aiden', 'Luna', 'Jackson', 'Chloe', 'Sebastian', 'Layla', 'Daniel', 'Ella', 'Henry', 'Grace', 'Alexander', 'Zoe', 'Owen', 'Nora', 'Jack', 'Lily'];
+  const lastNames = ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis', 'Rodriguez', 'Martinez', 'Hernandez', 'Lopez', 'Gonzalez', 'Wilson', 'Anderson', 'Thomas', 'Taylor', 'Moore', 'Jackson', 'Martin'];
+  const planNames = ['Basic Monthly', 'Premium Monthly', 'VIP Monthly', 'Basic Annual', 'Premium Annual', '10-Class Pack', 'Drop-in'];
+  const planAmounts = [29.99, 59.99, 99.99, 299.99, 599.99, 120, 15];
+
+  const seededRandom = (seed: number) => {
+    const x = Math.sin(seed) * 10000;
+    return x - Math.floor(x);
+  };
+
+  // Generate members
+  const members = Array.from({ length: 35 }, (_, i) => {
+    const r = seededRandom(i + 1);
+    const monthsAgo = Math.floor(r * 18);
+    const joinDate = new Date(now.getFullYear(), now.getMonth() - monthsAgo, Math.floor(seededRandom(i + 100) * 28) + 1);
+    const statuses = ['ACTIVE', 'ACTIVE', 'ACTIVE', 'ACTIVE', 'ACTIVE', 'INACTIVE', 'CANCELLED'];
+    const status = statuses[Math.floor(seededRandom(i + 200) * statuses.length)];
+    const cancelledRecently = status === 'CANCELLED' && monthsAgo < 2;
+
+    return {
+      id: `member-${i + 1}`,
+      firstName: firstNames[i % firstNames.length],
+      lastName: lastNames[i % lastNames.length],
+      email: `${firstNames[i % firstNames.length].toLowerCase()}.${lastNames[i % lastNames.length].toLowerCase()}@email.com`,
+      status,
+      joinedAt: joinDate.toISOString(),
+      updatedAt: cancelledRecently
+        ? new Date(now.getFullYear(), now.getMonth(), Math.floor(seededRandom(i + 300) * 20) + 1).toISOString()
+        : joinDate.toISOString(),
+    };
+  });
+
+  // Generate payments spread across the last 12 months
+  const payments: any[] = [];
+  let paymentId = 1;
+  for (let monthOffset = 0; monthOffset < 12; monthOffset++) {
+    const paymentsInMonth = 12 + Math.floor(seededRandom(monthOffset + 500) * 8);
+    for (let j = 0; j < paymentsInMonth; j++) {
+      const r = seededRandom(paymentId + 1000);
+      const planIdx = Math.floor(seededRandom(paymentId + 2000) * planNames.length);
+      const memberIdx = Math.floor(seededRandom(paymentId + 3000) * members.length);
+      const day = Math.floor(r * 28) + 1;
+      const date = new Date(now.getFullYear(), now.getMonth() - monthOffset, day);
+      if (date > now) { paymentId++; continue; }
+
+      const statusRoll = seededRandom(paymentId + 4000);
+      let status = 'COMPLETED';
+      if (statusRoll > 0.92) status = 'FAILED';
+      else if (statusRoll > 0.87) status = 'PENDING';
+      else if (statusRoll > 0.85) status = 'REFUNDED';
+
+      // Add slight variation to amounts
+      const baseAmount = planAmounts[planIdx];
+      const amount = Math.round((baseAmount + (seededRandom(paymentId + 5000) - 0.5) * 5) * 100) / 100;
+
+      payments.push({
+        id: `payment-${paymentId}`,
+        amount,
+        status,
+        description: `${planNames[planIdx]} — ${members[memberIdx].firstName} ${members[memberIdx].lastName}`,
+        createdAt: date.toISOString(),
+        member: {
+          firstName: members[memberIdx].firstName,
+          lastName: members[memberIdx].lastName,
+        },
+      });
+      paymentId++;
+    }
+  }
+
+  // Generate invoices
+  const invoices = Array.from({ length: 40 }, (_, i) => {
+    const r = seededRandom(i + 6000);
+    const monthsAgo = Math.floor(r * 6);
+    const day = Math.floor(seededRandom(i + 7000) * 28) + 1;
+    const date = new Date(now.getFullYear(), now.getMonth() - monthsAgo, day);
+    const dueDate = new Date(date);
+    dueDate.setDate(dueDate.getDate() + 30);
+
+    const statusRoll = seededRandom(i + 8000);
+    let status = 'PAID';
+    if (statusRoll > 0.85) status = 'OVERDUE';
+    else if (statusRoll > 0.75) status = 'SENT';
+    else if (statusRoll > 0.7) status = 'DRAFT';
+
+    const planIdx = Math.floor(seededRandom(i + 9000) * planAmounts.length);
+    const total = planAmounts[planIdx];
+
+    return {
+      id: `invoice-${i + 1}`,
+      status,
+      total,
+      dueDate: dueDate.toISOString(),
+      createdAt: date.toISOString(),
+    };
+  });
+
+  return { payments, invoices, members };
+}
+
 export default function BillingOverviewPage() {
-  const [stats, setStats] = useState<BillingStats | null>(null);
-  const [revenueBreakdown, setRevenueBreakdown] = useState<RevenueBreakdown | null>(null);
-  const [monthlyRevenue, setMonthlyRevenue] = useState<MonthlyRevenue[]>([]);
-  const [recentTransactions, setRecentTransactions] = useState<RecentTransaction[]>([]);
+  // Raw data (fetched once)
+  const [rawPayments, setRawPayments] = useState<any[]>([]);
+  const [rawInvoices, setRawInvoices] = useState<any[]>([]);
+  const [rawMembers, setRawMembers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -144,8 +317,13 @@ export default function BillingOverviewPage() {
   const [isForecastLoading, setIsForecastLoading] = useState(true);
   const [isScenarioModalOpen, setIsScenarioModalOpen] = useState(false);
 
+  // Date filtering
+  const [datePreset, setDatePreset] = useState<DatePreset>('this_month');
+  const [customStart, setCustomStart] = useState('');
+  const [customEnd, setCustomEnd] = useState('');
+
   useEffect(() => {
-    fetchBillingData();
+    fetchRawData();
     fetchForecastData();
   }, []);
 
@@ -167,145 +345,160 @@ export default function BillingOverviewPage() {
     }
   };
 
-  const fetchBillingData = async () => {
+  const fetchRawData = async () => {
     try {
       setIsLoading(true);
       setError(null);
-      console.log('[Billing] Starting to fetch billing data...');
 
-      // Fetch all data with individual error handling
       const fetchWithFallback = async (url: string, fallback: unknown) => {
         try {
           const res = await fetch(url);
           const data = await res.json();
           return data.success ? data.data : fallback;
-        } catch (e) {
-          console.error(`Failed to fetch ${url}:`, e);
+        } catch {
           return fallback;
         }
       };
 
       const [paymentsData, invoicesData, membersData] = await Promise.all([
-        fetchWithFallback('/api/admin/payments', { payments: [], stats: null }),
+        fetchWithFallback('/api/admin/payments', { payments: [] }),
         fetchWithFallback('/api/admin/invoices', { invoices: [] }),
         fetchWithFallback('/api/members', { items: [] }),
       ]);
 
-      console.log('[Billing] Data fetched');
+      const apiPayments = paymentsData.payments || [];
+      const apiInvoices = invoicesData.invoices || [];
+      const apiMembers = membersData.items || membersData.members || [];
 
-      const payments = paymentsData.payments || [];
-      const invoices = invoicesData.invoices || [];
-      const members = membersData.items || membersData.members || [];
+      // Merge with synthetic data for richer demonstration
+      const synthetic = generateSyntheticData();
+      setRawPayments([...apiPayments, ...synthetic.payments]);
+      setRawInvoices([...apiInvoices, ...synthetic.invoices]);
+      setRawMembers([...apiMembers, ...synthetic.members]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load billing data');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-      const now = new Date();
-      const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+  // Computed date ranges
+  const dateRange = useMemo(
+    () => getDateRange(datePreset, customStart, customEnd),
+    [datePreset, customStart, customEnd]
+  );
+  const comparisonRange = useMemo(() => getComparisonRange(dateRange), [dateRange]);
 
-      // Calculate metrics
-      const completedPayments = payments.filter((p: { status: string }) => p.status === 'COMPLETED');
-      const thisMonthPayments = completedPayments.filter((p: { createdAt: string }) =>
-        new Date(p.createdAt) >= thisMonthStart
-      );
-      const lastMonthPayments = completedPayments.filter((p: { createdAt: string }) =>
-        new Date(p.createdAt) >= lastMonthStart && new Date(p.createdAt) <= lastMonthEnd
-      );
+  // Compute stats from raw data + date range
+  const stats = useMemo<BillingStats | null>(() => {
+    if (isLoading) return null;
 
-      const thisMonthRevenue = thisMonthPayments.reduce((sum: number, p: { amount: number }) =>
-        sum + Number(p.amount), 0
-      );
-      const lastMonthRevenue = lastMonthPayments.reduce((sum: number, p: { amount: number }) =>
-        sum + Number(p.amount), 0
-      );
+    const now = new Date();
+    const completedPayments = rawPayments.filter((p: { status: string }) => p.status === 'COMPLETED');
 
-      // Active subscriptions (members with ACTIVE status)
-      const activeMembers = members.filter((m: { status: string }) => m.status === 'ACTIVE');
-      const activeSubscriptions = activeMembers.length;
+    const periodPayments = completedPayments.filter((p: { createdAt: string }) => {
+      const d = new Date(p.createdAt);
+      return d >= dateRange.start && d <= dateRange.end;
+    });
 
-      // New this month
-      const newThisMonth = members.filter((m: { joinedAt: string }) =>
-        new Date(m.joinedAt) >= thisMonthStart
-      ).length;
+    const compPayments = completedPayments.filter((p: { createdAt: string }) => {
+      const d = new Date(p.createdAt);
+      return d >= comparisonRange.start && d <= comparisonRange.end;
+    });
 
-      // Churned (simplified - cancelled members)
-      const churnedThisMonth = members.filter((m: { status: string; updatedAt: string }) =>
-        m.status === 'CANCELLED' && new Date(m.updatedAt) >= thisMonthStart
-      ).length;
+    const periodRevenue = periodPayments.reduce((sum: number, p: { amount: number }) => sum + Number(p.amount), 0);
+    const comparisonRevenue = compPayments.reduce((sum: number, p: { amount: number }) => sum + Number(p.amount), 0);
 
-      // Failed payments
-      const failedPaymentsCount = payments.filter((p: { status: string }) => p.status === 'FAILED').length;
+    const activeMembers = rawMembers.filter((m: { status: string }) => m.status === 'ACTIVE');
+    const activeSubscriptions = activeMembers.length;
 
-      // Overdue invoices
-      const overdueInvoicesCount = invoices.filter((i: { status: string; dueDate: string }) =>
-        (i.status === 'SENT' || i.status === 'OVERDUE') && new Date(i.dueDate) < now
-      ).length;
+    const newInPeriod = rawMembers.filter((m: { joinedAt: string }) => {
+      const d = new Date(m.joinedAt);
+      return d >= dateRange.start && d <= dateRange.end;
+    }).length;
 
-      // Outstanding amount
-      const outstanding = invoices
-        .filter((i: { status: string }) => ['SENT', 'OVERDUE'].includes(i.status))
-        .reduce((sum: number, i: { total: number }) => sum + Number(i.total), 0) +
-        payments
-          .filter((p: { status: string }) => p.status === 'FAILED')
-          .reduce((sum: number, p: { amount: number }) => sum + Number(p.amount), 0);
+    const churnedInPeriod = rawMembers.filter((m: { status: string; updatedAt: string }) =>
+      m.status === 'CANCELLED' && new Date(m.updatedAt) >= dateRange.start && new Date(m.updatedAt) <= dateRange.end
+    ).length;
 
-      // MRR (simplified - this month's recurring revenue)
-      const mrr = thisMonthRevenue;
+    const failedPaymentsCount = rawPayments.filter((p: { status: string }) => p.status === 'FAILED').length;
 
-      // Expected next month (simplified projection)
-      const expectedNextMonth = mrr * (1 + (newThisMonth - churnedThisMonth) * 0.05);
+    const overdueInvoicesCount = rawInvoices.filter((i: { status: string; dueDate: string }) =>
+      (i.status === 'SENT' || i.status === 'OVERDUE') && new Date(i.dueDate) < now
+    ).length;
 
-      // Avg revenue per member
-      const avgRevenuePerMember = activeSubscriptions > 0 ? thisMonthRevenue / activeSubscriptions : 0;
+    const outstanding = rawInvoices
+      .filter((i: { status: string }) => ['SENT', 'OVERDUE'].includes(i.status))
+      .reduce((sum: number, i: { total: number }) => sum + Number(i.total), 0) +
+      rawPayments
+        .filter((p: { status: string }) => p.status === 'FAILED')
+        .reduce((sum: number, p: { amount: number }) => sum + Number(p.amount), 0);
 
-      // Upcoming renewals (next 7 days - simplified)
-      const upcomingRenewalsCount = Math.floor(activeSubscriptions * 0.25);
-      const upcomingRenewalsValue = upcomingRenewalsCount * avgRevenuePerMember;
+    const mrr = periodRevenue;
+    const expectedNextMonth = mrr * (1 + (newInPeriod - churnedInPeriod) * 0.05);
+    const avgRevenuePerMember = activeSubscriptions > 0 ? periodRevenue / activeSubscriptions : 0;
+    const upcomingRenewalsCount = Math.floor(activeSubscriptions * 0.25);
+    const upcomingRenewalsValue = upcomingRenewalsCount * avgRevenuePerMember;
 
-      setStats({
-        mrr,
-        thisMonthRevenue,
-        lastMonthRevenue,
-        outstanding,
-        expectedNextMonth,
-        activeSubscriptions,
-        newSubscriptionsThisMonth: newThisMonth,
-        churnedThisMonth,
-        avgRevenuePerMember,
-        failedPaymentsCount,
-        overdueInvoicesCount,
-        upcomingRenewalsCount,
-        upcomingRenewalsValue,
+    return {
+      mrr,
+      periodRevenue,
+      comparisonRevenue,
+      outstanding,
+      expectedNextMonth,
+      activeSubscriptions,
+      newInPeriod,
+      churnedInPeriod,
+      avgRevenuePerMember,
+      failedPaymentsCount,
+      overdueInvoicesCount,
+      upcomingRenewalsCount,
+      upcomingRenewalsValue,
+    };
+  }, [rawPayments, rawInvoices, rawMembers, dateRange, comparisonRange, isLoading]);
+
+  // Revenue breakdown (simulated percentages)
+  const revenueBreakdown = useMemo<RevenueBreakdown | null>(() => {
+    if (!stats) return null;
+    const total = stats.periodRevenue || 100;
+    return {
+      memberships: total * 0.65,
+      classPacks: total * 0.15,
+      personalTraining: total * 0.12,
+      dropIns: total * 0.05,
+      retail: total * 0.02,
+      other: total * 0.01,
+    };
+  }, [stats]);
+
+  // Monthly revenue trend (always last 6 months)
+  const monthlyRevenue = useMemo<MonthlyRevenue[]>(() => {
+    const completedPayments = rawPayments.filter((p: { status: string }) => p.status === 'COMPLETED');
+    const now = new Date();
+    const data: MonthlyRevenue[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const monthDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0);
+      const monthPayments = completedPayments.filter((p: { createdAt: string }) => {
+        const d = new Date(p.createdAt);
+        return d >= monthDate && d <= monthEnd;
       });
-
-      // Revenue breakdown (simulated - in production would come from payment categories)
-      const totalRevenue = thisMonthRevenue || 100;
-      setRevenueBreakdown({
-        memberships: totalRevenue * 0.65,
-        classPacks: totalRevenue * 0.15,
-        personalTraining: totalRevenue * 0.12,
-        dropIns: totalRevenue * 0.05,
-        retail: totalRevenue * 0.02,
-        other: totalRevenue * 0.01,
+      data.push({
+        month: monthDate.toLocaleDateString('en-US', { month: 'short' }),
+        revenue: monthPayments.reduce((sum: number, p: { amount: number }) => sum + Number(p.amount), 0),
       });
+    }
+    return data;
+  }, [rawPayments]);
 
-      // Monthly revenue trend (last 6 months)
-      const monthlyData: MonthlyRevenue[] = [];
-      for (let i = 5; i >= 0; i--) {
-        const monthDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0);
-        const monthPayments = completedPayments.filter((p: { createdAt: string }) => {
-          const date = new Date(p.createdAt);
-          return date >= monthDate && date <= monthEnd;
-        });
-        monthlyData.push({
-          month: monthDate.toLocaleDateString('en-US', { month: 'short' }),
-          revenue: monthPayments.reduce((sum: number, p: { amount: number }) => sum + Number(p.amount), 0),
-        });
-      }
-      setMonthlyRevenue(monthlyData);
-
-      // Recent transactions
-      const transactions: RecentTransaction[] = payments.slice(0, 5).map((p: {
+  // Transactions filtered by selected period
+  const periodTransactions = useMemo<RecentTransaction[]>(() => {
+    return rawPayments
+      .filter((p: { createdAt: string }) => {
+        const d = new Date(p.createdAt);
+        return d >= dateRange.start && d <= dateRange.end;
+      })
+      .map((p: {
         id: string;
         amount: number;
         status: string;
@@ -321,16 +514,9 @@ export default function BillingOverviewPage() {
         date: p.createdAt,
         member: p.member,
       }));
-      setRecentTransactions(transactions);
+  }, [rawPayments, dateRange]);
 
-    } catch (err) {
-      console.error('Failed to fetch billing data:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load billing data');
-    } finally {
-      console.log('[Billing] Setting isLoading to false');
-      setIsLoading(false);
-    }
-  };
+  const displayTransactions = periodTransactions.slice(0, 10);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
@@ -340,8 +526,8 @@ export default function BillingOverviewPage() {
     return new Date(dateString).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
-  const revenueChange = stats && stats.lastMonthRevenue > 0
-    ? ((stats.thisMonthRevenue - stats.lastMonthRevenue) / stats.lastMonthRevenue * 100)
+  const revenueChange = stats && stats.comparisonRevenue > 0
+    ? ((stats.periodRevenue - stats.comparisonRevenue) / stats.comparisonRevenue * 100)
     : 0;
 
   const maxRevenue = Math.max(...monthlyRevenue.map(m => m.revenue), 1);
@@ -356,6 +542,17 @@ export default function BillingOverviewPage() {
   ] : [];
 
   const totalBreakdown = breakdownItems.reduce((sum, item) => sum + item.value, 0);
+
+  // Export columns for transactions
+  const transactionExportColumns: ExportColumn[] = [
+    { header: 'Date', accessor: (t) => formatDate(t.date) },
+    { header: 'Description', accessor: (t) => t.description },
+    { header: 'Member', accessor: (t) => t.member ? `${t.member.firstName} ${t.member.lastName}` : '' },
+    { header: 'Status', accessor: (t) => t.status },
+    { header: 'Amount', accessor: (t) => formatCurrency(t.amount), align: 'right' },
+  ];
+
+  const periodLabel = getPeriodLabel(datePreset);
 
   if (isLoading) {
     return (
@@ -386,6 +583,58 @@ export default function BillingOverviewPage() {
       <Header title="Accounting" description="Financial overview and management" />
 
       <div className="p-4 md:p-6 space-y-6">
+        {/* Date Filter Bar */}
+        <div className="bg-white rounded-2xl p-4 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Calendar className="w-4 h-4 text-slate-400 mr-1" />
+              {DATE_PRESETS.map((preset) => (
+                <button
+                  key={preset.value}
+                  onClick={() => setDatePreset(preset.value)}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    datePreset === preset.value
+                      ? 'bg-slate-900 text-white'
+                      : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-2">
+              {datePreset === 'custom' && (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="date"
+                    value={customStart}
+                    onChange={(e) => setCustomStart(e.target.value)}
+                    className="px-3 py-1.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
+                  />
+                  <span className="text-slate-400 text-sm">to</span>
+                  <input
+                    type="date"
+                    value={customEnd}
+                    onChange={(e) => setCustomEnd(e.target.value)}
+                    className="px-3 py-1.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent"
+                  />
+                </div>
+              )}
+              <ExportButton
+                data={periodTransactions}
+                columns={transactionExportColumns}
+                filename="accounting-report"
+                pdfTitle={`Accounting Report — ${periodLabel} Revenue`}
+                pdfSummary={[
+                  { label: 'Period Revenue', value: formatCurrency(stats?.periodRevenue || 0) },
+                  { label: 'Transactions', value: `${periodTransactions.length}` },
+                  { label: 'Outstanding', value: formatCurrency(stats?.outstanding || 0) },
+                ]}
+              />
+            </div>
+          </div>
+        </div>
+
         {/* Primary Metrics */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-white rounded-2xl p-5 shadow-sm">
@@ -411,8 +660,8 @@ export default function BillingOverviewPage() {
                 </span>
               )}
             </div>
-            <p className="text-2xl font-bold text-slate-900">{formatCurrency(stats?.thisMonthRevenue || 0)}</p>
-            <p className="text-sm text-slate-500 mt-1">This Month's Revenue</p>
+            <p className="text-2xl font-bold text-slate-900">{formatCurrency(stats?.periodRevenue || 0)}</p>
+            <p className="text-sm text-slate-500 mt-1">{periodLabel} Revenue</p>
           </div>
 
           <div className="bg-white rounded-2xl p-5 shadow-sm">
@@ -452,9 +701,9 @@ export default function BillingOverviewPage() {
           <div className="bg-white rounded-xl p-4 shadow-sm">
             <div className="flex items-center gap-2 mb-2">
               <UserPlus className="w-4 h-4 text-emerald-500" />
-              <span className="text-xs text-slate-500">New This Month</span>
+              <span className="text-xs text-slate-500">New in Period</span>
             </div>
-            <p className="text-xl font-bold text-emerald-600">+{stats?.newSubscriptionsThisMonth || 0}</p>
+            <p className="text-xl font-bold text-emerald-600">+{stats?.newInPeriod || 0}</p>
           </div>
 
           <div className="bg-white rounded-xl p-4 shadow-sm">
@@ -462,7 +711,7 @@ export default function BillingOverviewPage() {
               <UserMinus className="w-4 h-4 text-red-500" />
               <span className="text-xs text-slate-500">Churned</span>
             </div>
-            <p className="text-xl font-bold text-red-600">-{stats?.churnedThisMonth || 0}</p>
+            <p className="text-xl font-bold text-red-600">-{stats?.churnedInPeriod || 0}</p>
           </div>
 
           <div className="bg-white rounded-xl p-4 shadow-sm">
@@ -604,7 +853,7 @@ export default function BillingOverviewPage() {
         )}
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Link href="/admin/billing/failed-overdue" className="bg-white rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow group">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -619,24 +868,6 @@ export default function BillingOverviewPage() {
               <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-slate-600 transition-colors" />
             </div>
           </Link>
-
-          <button
-            onClick={() => alert('Export functionality would generate a report here')}
-            className="bg-white rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow group text-left"
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center group-hover:bg-emerald-200 transition-colors">
-                  <Download className="w-5 h-5 text-emerald-600" />
-                </div>
-                <div>
-                  <p className="font-medium text-slate-900">Export Report</p>
-                  <p className="text-sm text-slate-500">Download CSV/PDF</p>
-                </div>
-              </div>
-              <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-slate-600 transition-colors" />
-            </div>
-          </button>
 
           <Link href="/admin/billing/transactions" className="bg-white rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow group">
             <div className="flex items-center justify-between">
@@ -654,10 +885,15 @@ export default function BillingOverviewPage() {
           </Link>
         </div>
 
-        {/* Recent Transactions */}
+        {/* Period Transactions */}
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
           <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-            <h2 className="text-base font-semibold text-slate-900">Recent Transactions</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-semibold text-slate-900">Transactions</h2>
+              <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+                {periodTransactions.length}
+              </span>
+            </div>
             <Link href="/admin/billing/transactions">
               <Button variant="ghost" className="text-sm text-slate-600 hover:text-slate-900">
                 View All
@@ -666,16 +902,16 @@ export default function BillingOverviewPage() {
             </Link>
           </div>
 
-          {recentTransactions.length === 0 ? (
+          {displayTransactions.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 px-4">
               <div className="rounded-2xl bg-slate-100 p-4 mb-3">
                 <CreditCard className="h-8 w-8 text-slate-400" />
               </div>
-              <p className="text-sm text-slate-500">No transactions yet</p>
+              <p className="text-sm text-slate-500">No transactions in this period</p>
             </div>
           ) : (
             <div className="divide-y divide-slate-100">
-              {recentTransactions.map((transaction) => (
+              {displayTransactions.map((transaction) => (
                 <div key={transaction.id} className="p-4 hover:bg-slate-50 transition-colors flex items-center gap-4">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
                     transaction.status === 'COMPLETED' ? 'bg-emerald-100' :
@@ -713,7 +949,7 @@ export default function BillingOverviewPage() {
           <Button
             variant="outline"
             onClick={() => {
-              fetchBillingData();
+              fetchRawData();
               fetchForecastData();
             }}
             className="rounded-xl text-slate-600"
@@ -734,7 +970,7 @@ export default function BillingOverviewPage() {
             activeSubscriptions: forecastData.activeSubscriptions,
             avgRevenuePerMember: forecastData.avgSubscriptionValue,
             churnRateThisMonth: forecastData.churn.churnRateThisMonth,
-            newSignupsPerMonth: stats?.newSubscriptionsThisMonth || 0,
+            newSignupsPerMonth: stats?.newInPeriod || 0,
           }}
           baselineProjection90Day={
             forecastData.forecasts.find((f) => f.period === '90day')?.projectedRevenue || 0

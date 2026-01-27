@@ -8,6 +8,7 @@ import {
   type ApiError,
 } from '@gym/shared';
 import { hashPassword } from './auth.service';
+import { getActivePasses, deductCredit } from './pass.service';
 
 export type MemberResult =
   | { success: true; member: Member }
@@ -357,10 +358,18 @@ export async function listMembers(
 
 /**
  * Check in a member
+ *
+ * Access hierarchy: Subscription → Active Pass → Staff Override → Denied
  */
 export async function checkInMember(
   memberId: string,
-  method: CheckInMethod = CheckInMethod.MANUAL
+  method: CheckInMethod = CheckInMethod.MANUAL,
+  options?: {
+    memberPassId?: string;
+    isOverride?: boolean;
+    overrideBy?: string;
+    notes?: string;
+  }
 ): Promise<{ success: true; checkIn: CheckIn } | { success: false; error: ApiError }> {
   const member = await prisma.member.findUnique({
     where: { id: memberId },
@@ -387,30 +396,115 @@ export async function checkInMember(
     };
   }
 
-  // Check if subscription is valid
-  if (
+  const hasActiveSubscription =
     member.subscription &&
-    member.subscription.status !== 'ACTIVE' &&
-    member.subscription.status !== 'PAST_DUE'
-  ) {
-    return {
-      success: false,
-      error: {
-        code: ERROR_CODES.SUBSCRIPTION_REQUIRED,
-        message: 'Active subscription required',
-      },
-    };
+    (member.subscription.status === 'ACTIVE' || member.subscription.status === 'PAST_DUE');
+
+  let memberPassId: string | undefined;
+  let creditsUsed = 0;
+
+  if (hasActiveSubscription) {
+    // Subscription-based check-in — no pass needed
+  } else if (options?.memberPassId) {
+    // Pass-based check-in — deduct credit
+    const result = await deductCredit(options.memberPassId, 1);
+    if (!result.success) {
+      return {
+        success: false,
+        error: {
+          code: 'PASS_ERROR',
+          message: result.error.message,
+        },
+      };
+    }
+    memberPassId = options.memberPassId;
+    creditsUsed = 1;
+  } else if (!options?.isOverride) {
+    // No subscription, no pass specified — try to auto-select a pass
+    const activePasses = await getActivePasses(memberId);
+    const passToUse = activePasses[0];
+    if (passToUse) {
+      // Use the pass closest to expiring first
+      const result = await deductCredit(passToUse.id, 1);
+      if (!result.success) {
+        return {
+          success: false,
+          error: {
+            code: 'PASS_ERROR',
+            message: result.error.message,
+          },
+        };
+      }
+      memberPassId = passToUse.id;
+      creditsUsed = 1;
+    } else {
+      return {
+        success: false,
+        error: {
+          code: 'ACCESS_REQUIRED',
+          message: 'No active subscription or pass with remaining credits',
+        },
+      };
+    }
   }
+  // If isOverride is true, we skip all access checks
 
   const checkIn = await prisma.checkIn.create({
     data: {
       memberId,
       gymId: member.gymId,
       method,
+      memberPassId: memberPassId || undefined,
+      creditsUsed,
+      isOverride: options?.isOverride || false,
+      overrideBy: options?.overrideBy || undefined,
+      notes: options?.notes || undefined,
     },
   });
 
   return { success: true, checkIn };
+}
+
+/**
+ * Check out a member (record exit time)
+ */
+export async function checkOutMember(
+  checkInId: string,
+  notes?: string
+): Promise<{ success: true; checkIn: CheckIn } | { success: false; error: ApiError }> {
+  const checkIn = await prisma.checkIn.findUnique({
+    where: { id: checkInId },
+  });
+
+  if (!checkIn) {
+    return {
+      success: false,
+      error: {
+        code: ERROR_CODES.NOT_FOUND,
+        message: 'Check-in record not found',
+      },
+    };
+  }
+
+  if (checkIn.checkedOutAt) {
+    return {
+      success: false,
+      error: {
+        code: 'ALREADY_CHECKED_OUT',
+        message: 'Member has already checked out',
+      },
+    };
+  }
+
+  const updated = await prisma.checkIn.update({
+    where: { id: checkInId },
+    data: {
+      checkedOutAt: new Date(),
+      ...(notes ? { notes: checkIn.notes ? `${checkIn.notes}\n${notes}` : notes } : {}),
+    },
+  });
+
+  return { success: true, checkIn: updated };
 }
 
 /**

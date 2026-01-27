@@ -3,8 +3,9 @@ import { prisma } from '@gym/database';
 import { redirect } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Check, CreditCard, Calendar, Dumbbell } from 'lucide-react';
+import { Check, CreditCard, Calendar, Dumbbell, Ticket, Clock } from 'lucide-react';
 import { formatCurrency } from '@gym/shared';
+import { getMemberPasses } from '@gym/core';
 
 async function getMembershipData() {
   const session = await getSession();
@@ -20,7 +21,11 @@ async function getMembershipData() {
     },
   });
 
-  return member;
+  if (!member) return null;
+
+  const passes = await getMemberPasses(member.id);
+
+  return { member, passes };
 }
 
 function formatDateDisplay(date: Date): string {
@@ -39,14 +44,16 @@ function formatShortDate(date: Date): string {
 }
 
 export default async function MembershipPage() {
-  const member = await getMembershipData();
+  const data = await getMembershipData();
 
-  if (!member) {
+  if (!data) {
     redirect('/member-login');
   }
 
+  const { member, passes } = data;
   const subscription = member.subscription;
   const plan = subscription?.plan;
+  const activePasses = passes.filter((p: { status: string }) => p.status === 'ACTIVE');
 
   return (
     <div className="space-y-8">
@@ -173,6 +180,63 @@ export default async function MembershipPage() {
           </CardContent>
         )}
       </Card>
+
+      {/* Your Passes */}
+      {activePasses.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Ticket className="h-5 w-5" />
+              Your Passes
+            </CardTitle>
+            <CardDescription>Class packs and drop-in credits</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {activePasses.map((pass: {
+              id: string;
+              creditsRemaining: number;
+              creditsTotal: number;
+              expiresAt: Date | null;
+              product: { name: string; type: string };
+            }) => {
+              const pct = pass.creditsTotal > 0
+                ? Math.round((pass.creditsRemaining / pass.creditsTotal) * 100)
+                : 0;
+              return (
+                <div key={pass.id} className="p-4 border rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <p className="font-medium">{pass.product.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {pass.product.type === 'DROP_IN' ? 'Drop-In' : 'Class Pack'}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-3xl font-bold text-primary">{pass.creditsRemaining}</p>
+                      <p className="text-xs text-muted-foreground">of {pass.creditsTotal} credits</p>
+                    </div>
+                  </div>
+                  {/* Progress bar */}
+                  <div className="h-2 bg-muted rounded-full overflow-hidden mb-2">
+                    <div
+                      className={`h-full rounded-full transition-all ${
+                        pct > 50 ? 'bg-primary' : pct > 20 ? 'bg-amber-500' : 'bg-red-500'
+                      }`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  {pass.expiresAt && (
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Clock className="h-3 w-3" />
+                      Expires {formatDateDisplay(pass.expiresAt)}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Member Since */}
       <Card>

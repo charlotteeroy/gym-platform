@@ -11,7 +11,7 @@ export const subscriptionStatusSchema = z.enum([
 
 export const createMembershipPlanSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100).trim(),
-  description: z.string().max(500).optional(),
+  description: z.string().max(500).nullable().optional(),
   priceAmount: z.coerce.number().min(0, 'Price must be positive'),
   priceCurrency: z.string().length(3).default('USD'),
   billingInterval: billingIntervalSchema,

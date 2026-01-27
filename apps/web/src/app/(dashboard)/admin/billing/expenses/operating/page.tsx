@@ -15,6 +15,8 @@ import {
 } from 'lucide-react';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
+import { ExportButton } from '@/components/ui/export-button';
+import { type ExportColumn } from '@/lib/export';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -188,6 +190,14 @@ export default function OperatingExpensesPage() {
 
   const totalOperating = expenses.reduce((sum, exp) => sum + Number(exp.amount), 0);
 
+  const operatingExportColumns: ExportColumn[] = [
+    { header: 'Date', accessor: (e) => formatDate(e.date) },
+    { header: 'Category', accessor: (e) => e.category },
+    { header: 'Description', accessor: (e) => e.description || '' },
+    { header: 'Vendor', accessor: (e) => e.vendor || '' },
+    { header: 'Amount', accessor: (e) => formatCurrency(Number(e.amount)), align: 'right' },
+  ];
+
   return (
     <>
       <Header title="Operating Expenditure" description="Rent, utilities, maintenance, and equipment costs" />
@@ -248,10 +258,22 @@ export default function OperatingExpensesPage() {
               <p className="text-sm text-slate-500">{expenses.length} expenses</p>
             </div>
           </div>
-          <Button onClick={() => openModal()} className="bg-slate-900 hover:bg-slate-800 rounded-xl">
-            <Plus className="mr-2 h-4 w-4" />
-            Add Expense
-          </Button>
+          <div className="flex gap-2">
+            <ExportButton
+              data={expenses}
+              columns={operatingExportColumns}
+              filename="operating-expenses"
+              pdfTitle="Operating Expenses Report"
+              pdfSummary={[
+                { label: 'Total Expenses', value: `${expenses.length}` },
+                { label: 'Total Amount', value: formatCurrency(totalOperating) },
+              ]}
+            />
+            <Button onClick={() => openModal()} className="bg-slate-900 hover:bg-slate-800 rounded-xl">
+              <Plus className="mr-2 h-4 w-4" />
+              Add Expense
+            </Button>
+          </div>
         </div>
 
         {/* Content */}

@@ -26,6 +26,8 @@ import {
 } from 'lucide-react';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
+import { ExportButton } from '@/components/ui/export-button';
+import { type ExportColumn } from '@/lib/export';
 import { SendOfferModal } from '@/components/opportunities/send-offer-modal';
 
 interface Member {
@@ -326,6 +328,18 @@ export default function OpportunitiesPage() {
     }).format(value);
   };
 
+  const opportunityExportColumns: ExportColumn[] = [
+    { header: 'Type', accessor: (o) => o.type },
+    { header: 'Title', accessor: (o) => o.title },
+    { header: 'Member', accessor: (o) => o.member ? `${o.member.firstName} ${o.member.lastName}` : '' },
+    { header: 'Email', accessor: (o) => o.member?.email || '' },
+    { header: 'Value', accessor: (o) => formatCurrency(Number(o.potentialValue)), align: 'right' },
+    { header: 'Confidence', accessor: (o) => o.confidence },
+    { header: 'Status', accessor: (o) => o.status },
+    { header: 'Reason', accessor: (o) => o.reason || '' },
+    { header: 'Recommended Action', accessor: (o) => o.recommendedAction || '' },
+  ];
+
   const stats = {
     totalOpportunities: (summary?.byStatus?.NEW ?? 0) + (summary?.byStatus?.CONTACTED ?? 0) + (summary?.byStatus?.FOLLOW_UP ?? 0),
     totalValue: summary?.totalPotentialValue ?? 0,
@@ -360,18 +374,30 @@ export default function OpportunitiesPage() {
       />
 
       <Header title="Opportunities" description="Identify upsell and growth opportunities">
-        <Button
-          onClick={scanForOpportunities}
-          disabled={isScanning}
-          className="gap-2"
-        >
-          {isScanning ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <RefreshCw className="h-4 w-4" />
-          )}
-          {isScanning ? 'Scanning...' : 'Scan for Opportunities'}
-        </Button>
+        <div className="flex gap-2">
+          <ExportButton
+            data={opportunities}
+            columns={opportunityExportColumns}
+            filename="opportunities"
+            pdfTitle="Opportunities Report"
+            pdfSummary={[
+              { label: 'Total', value: `${opportunities.length}` },
+              { label: 'Total Value', value: formatCurrency(opportunities.reduce((sum, o) => sum + Number(o.potentialValue), 0)) },
+            ]}
+          />
+          <Button
+            onClick={scanForOpportunities}
+            disabled={isScanning}
+            className="gap-2"
+          >
+            {isScanning ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
+            {isScanning ? 'Scanning...' : 'Scan for Opportunities'}
+          </Button>
+        </div>
       </Header>
 
       <div className="p-4 md:p-6 space-y-6">

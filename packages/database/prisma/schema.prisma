@@ -72,6 +72,7 @@ model Gym {
   openingHours         OpeningHours[]
   policies             GymPolicy[]
   opportunities        Opportunity[]
+  memberPasses         MemberPass[]
 
   // Canadian Accounting Compliance
   taxConfiguration     TaxConfiguration?
@@ -168,6 +169,7 @@ model Member {
   purchases          Purchase[]
   failedPayments     FailedPaymentAttempt[]
   opportunities      Opportunity[]
+  passes             MemberPass[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -490,17 +492,27 @@ model WaitlistEntry {
 model CheckIn {
   id String @id @default(cuid())
 
-  checkedInAt DateTime      @default(now())
-  method      CheckInMethod
+  checkedInAt  DateTime      @default(now())
+  checkedOutAt DateTime?
+  method       CheckInMethod
+  notes        String?
+
+  // Pass-based check-in
+  creditsUsed  Int           @default(0)
+  isOverride   Boolean       @default(false)
+  overrideBy   String?
 
   // Relations
-  memberId String
-  member   Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  gymId    String
-  gym      Gym    @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  memberId     String
+  member       Member      @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  gymId        String
+  gym          Gym         @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  memberPassId String?
+  memberPass   MemberPass? @relation(fields: [memberPassId], references: [id])
 
   @@index([gymId, checkedInAt])
   @@index([memberId])
+  @@index([memberPassId])
 }
 
 enum CheckInMethod {
@@ -922,11 +934,13 @@ model Product {
 
   // For class packs
   classCredits    Int?
+  validityDays    Int?          // Days pass is valid after activation (null = no expiry)
 
   // Relations
   gymId     String
   gym       Gym        @relation(fields: [gymId], references: [id], onDelete: Cascade)
   purchases Purchase[]
+  passes    MemberPass[] @relation("PassProduct")
   targetedOpportunities Opportunity[]
 
   createdAt DateTime @default(now())
@@ -946,12 +960,13 @@ model Purchase {
   stripePaymentId String?
 
   // Relations
-  gymId     String
-  gym       Gym     @relation(fields: [gymId], references: [id], onDelete: Cascade)
-  memberId  String
-  member    Member  @relation(fields: [memberId], references: [id])
-  productId String
-  product   Product @relation(fields: [productId], references: [id])
+  gymId      String
+  gym        Gym         @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  memberId   String
+  member     Member      @relation(fields: [memberId], references: [id])
+  productId  String
+  product    Product     @relation(fields: [productId], references: [id])
+  memberPass MemberPass?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1307,4 +1322,44 @@ model OpportunityConversion {
   createdAt       DateTime    @default(now())
 
   @@index([opportunityId])
+}
+
+// ============================================
+// MEMBER PASSES & CREDITS
+// ============================================
+
+enum MemberPassStatus {
+  ACTIVE
+  EXPIRED
+  DEPLETED
+  CANCELLED
+}
+
+model MemberPass {
+  id               String           @id @default(cuid())
+  status           MemberPassStatus @default(ACTIVE)
+  creditsTotal     Int
+  creditsRemaining Int
+  activatedAt      DateTime         @default(now())
+  expiresAt        DateTime?
+  notes            String?
+
+  // Relations
+  memberId   String
+  member     Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  productId  String
+  product    Product   @relation("PassProduct", fields: [productId], references: [id])
+  purchaseId String?   @unique
+  purchase   Purchase? @relation(fields: [purchaseId], references: [id])
+  gymId      String
+  gym        Gym       @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  checkIns   CheckIn[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([gymId])
+  @@index([memberId])
+  @@index([status])
+  @@index([expiresAt])
 }

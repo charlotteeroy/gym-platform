@@ -127,3 +127,150 @@ html, body {
   }
 }
 
+/* ===== Sidebar Navigation ===== */
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #475569;
+  text-decoration: none;
+  transition: all 150ms;
+  min-height: 44px;
+}
+
+@media (min-width: 768px) {
+  .sidebar-link { min-height: 40px; }
+}
+
+.sidebar-link:visited { color: #475569; }
+.sidebar-link:hover { background-color: #f1f5f9; color: #0f172a; }
+
+.sidebar-link--nested { padding-left: 44px; }
+.sidebar-link--deep { padding: 8px 12px 8px 64px; }
+
+.sidebar-link--active,
+.sidebar-link--active:visited,
+.sidebar-link--active:hover {
+  background-color: #0f172a;
+  color: #fff;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.sidebar-link--active .sidebar-icon { color: #fff; }
+
+.sidebar-icon { color: #94a3b8; flex-shrink: 0; width: 20px; height: 20px; }
+.sidebar-icon--sm { width: 16px; height: 16px; }
+.sidebar-icon--active-parent { color: #0f172a; }
+.sidebar-icon--active-sub { color: #334155; }
+
+.sidebar-section-btn {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #475569;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: all 150ms;
+  min-height: 44px;
+}
+
+@media (min-width: 768px) {
+  .sidebar-section-btn { min-height: 40px; }
+}
+
+.sidebar-section-btn:hover { background-color: #f1f5f9; color: #0f172a; }
+.sidebar-section-btn--active { color: #0f172a; }
+
+.sidebar-subsection-btn {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px 8px 44px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #475569;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: all 150ms;
+  min-height: 40px;
+}
+
+.sidebar-subsection-btn:hover { background-color: #f1f5f9; color: #0f172a; }
+.sidebar-subsection-btn--active { color: #0f172a; }
+
+.sidebar-children {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 4px;
+}
+
+.sidebar-sub-children {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 2px;
+}
+
+.sidebar-header {
+  display: flex;
+  height: 64px;
+  align-items: center;
+  gap: 12px;
+  padding: 0 20px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.sidebar-logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.sidebar-gym-name {
+  font-weight: 700;
+  font-size: 18px;
+  color: #0f172a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-chevron { color: #94a3b8; flex-shrink: 0; }
+
+.sidebar-inner-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+

@@ -37,6 +37,8 @@ import {
 } from 'lucide-react';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
+import { ExportButton } from '@/components/ui/export-button';
+import { type ExportColumn } from '@/lib/export';
 import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
@@ -165,7 +167,6 @@ export default function PaymentsPage() {
   const [maxAmount, setMaxAmount] = useState<string>('');
   const [showFilters, setShowFilters] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
-  const [exportLoading, setExportLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -458,101 +459,16 @@ export default function PaymentsPage() {
     return PAYMENT_METHODS.find((m) => m.value === method);
   };
 
-  const exportToCSV = async () => {
-    setExportLoading(true);
-    try {
-      const headers = ['Date', 'Member', 'Email', 'Description', 'Amount', 'Status', 'Method', 'Invoice'];
-      const rows = filteredPayments.map((p) => [
-        formatDateShort(p.createdAt),
-        p.member ? `${p.member.firstName} ${p.member.lastName}` : '',
-        p.member?.email || '',
-        p.description || '',
-        p.amount.toString(),
-        p.status,
-        p.method,
-        p.invoice?.invoiceNumber || '',
-      ]);
-
-      const csv = [headers, ...rows].map((row) => row.map(cell => `"${cell}"`).join(',')).join('\n');
-      const blob = new Blob([csv], { type: 'text/csv' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `payments-${new Date().toISOString().split('T')[0]}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } finally {
-      setExportLoading(false);
-    }
-  };
-
-  const exportToPDF = async () => {
-    setExportLoading(true);
-    try {
-      const printContent = `
-        <html>
-          <head>
-            <title>Payments Report</title>
-            <style>
-              body { font-family: Arial, sans-serif; font-size: 12px; padding: 20px; }
-              h1 { font-size: 18px; margin-bottom: 5px; }
-              .subtitle { color: #666; margin-bottom: 20px; }
-              table { width: 100%; border-collapse: collapse; }
-              th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
-              th { background: #f5f5f5; font-weight: 600; }
-              .amount { text-align: right; }
-              .status { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; }
-              .completed { background: #d1fae5; color: #059669; }
-              .pending { background: #fef3c7; color: #d97706; }
-              .failed { background: #fee2e2; color: #dc2626; }
-              .refunded { background: #f1f5f9; color: #475569; }
-            </style>
-          </head>
-          <body>
-            <h1>Payments Report</h1>
-            <p class="subtitle">Generated on ${new Date().toLocaleDateString()}</p>
-            <table>
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Member</th>
-                  <th>Description</th>
-                  <th>Status</th>
-                  <th>Method</th>
-                  <th class="amount">Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${filteredPayments.map(p => `
-                  <tr>
-                    <td>${formatDateShort(p.createdAt)}</td>
-                    <td>${p.member ? `${p.member.firstName} ${p.member.lastName}` : '-'}</td>
-                    <td>${p.description || '-'}</td>
-                    <td><span class="status ${p.status.toLowerCase()}">${p.status}</span></td>
-                    <td>${getMethodConfig(p.method)?.label || p.method}</td>
-                    <td class="amount">${formatCurrency(Number(p.amount))}</td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
-            <p style="margin-top: 20px; color: #666;">
-              Total: ${filteredPayments.length} transactions |
-              Sum: ${formatCurrency(filteredPayments.reduce((sum, p) => sum + Number(p.amount), 0))}
-            </p>
-          </body>
-        </html>
-      `;
-
-      const printWindow = window.open('', '_blank');
-      if (printWindow) {
-        printWindow.document.write(printContent);
-        printWindow.document.close();
-        printWindow.print();
-      }
-    } finally {
-      setExportLoading(false);
-    }
-  };
+  const paymentExportColumns: ExportColumn[] = [
+    { header: 'Date', accessor: (p) => formatDateShort(p.createdAt) },
+    { header: 'Member', accessor: (p) => p.member ? `${p.member.firstName} ${p.member.lastName}` : '' },
+    { header: 'Email', accessor: (p) => p.member?.email || '' },
+    { header: 'Description', accessor: (p) => p.description || '' },
+    { header: 'Amount', accessor: (p) => formatCurrency(Number(p.amount)), align: 'right' },
+    { header: 'Status', accessor: (p) => p.status },
+    { header: 'Method', accessor: (p) => getMethodConfig(p.method)?.label || p.method },
+    { header: 'Invoice', accessor: (p) => p.invoice?.invoiceNumber || '' },
+  ];
 
   const handleRefund = async (paymentId: string) => {
     if (!confirm('Are you sure you want to refund this payment?')) return;
@@ -1007,40 +923,16 @@ export default function PaymentsPage() {
                     {sortOrder === 'desc' ? 'Newest' : 'Oldest'}
                   </Button>
 
-                  <div className="relative">
-                    <Button
-                      variant="outline"
-                      className="rounded-xl whitespace-nowrap"
-                      onClick={() => setActiveDropdown(activeDropdown === 'export' ? null : 'export')}
-                      disabled={exportLoading}
-                    >
-                      {exportLoading ? (
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      ) : (
-                        <Download className="w-4 h-4 mr-2" />
-                      )}
-                      Export
-                      <ChevronDown className="w-4 h-4 ml-1" />
-                    </Button>
-                    {activeDropdown === 'export' && (
-                      <div className="absolute right-0 mt-2 w-40 bg-white rounded-xl shadow-lg border border-slate-200 py-1 z-50">
-                        <button
-                          onClick={exportToCSV}
-                          className="w-full px-4 py-2 text-left text-sm hover:bg-slate-50 flex items-center gap-2"
-                        >
-                          <FileText className="w-4 h-4" />
-                          Export as CSV
-                        </button>
-                        <button
-                          onClick={exportToPDF}
-                          className="w-full px-4 py-2 text-left text-sm hover:bg-slate-50 flex items-center gap-2"
-                        >
-                          <FileText className="w-4 h-4" />
-                          Export as PDF
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                  <ExportButton
+                    data={filteredPayments}
+                    columns={paymentExportColumns}
+                    filename="payments"
+                    pdfTitle="Payments Report"
+                    pdfSummary={[
+                      { label: 'Total', value: `${filteredPayments.length} transactions` },
+                      { label: 'Sum', value: formatCurrency(filteredPayments.reduce((sum, p) => sum + Number(p.amount), 0)) },
+                    ]}
+                  />
                 </div>
               </div>
 

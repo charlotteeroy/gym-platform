@@ -44,6 +44,7 @@ export {
   updateMemberStatus,
   listMembers,
   checkInMember,
+  checkOutMember,
   getMemberCheckIns,
   getMemberStats,
   getMemberAnalytics,
@@ -288,3 +289,18 @@ export {
   getMemberProgression,
   getTierColor,
 } from './member-progression.service';
+
+// Pass service
+export {
+  type PassResult,
+  getGymPassProducts,
+  getPassProductById,
+  activatePass,
+  deductCredit,
+  getMemberPasses,
+  getActivePasses,
+  getMemberAccessSummary,
+  expireOverduePasses,
+  cancelPass,
+  getPassById,
+} from './pass.service';

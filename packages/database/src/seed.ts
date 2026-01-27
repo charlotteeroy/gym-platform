@@ -1,4 +1,4 @@
-import { PrismaClient, StaffRole, BillingInterval, MemberStatus, SubscriptionStatus, CheckInMethod, PaymentStatus, PaymentMethod, InvoiceStatus, ExpenseCategory, PayoutStatus } from '@prisma/client';
+import { PrismaClient, StaffRole, BillingInterval, MemberStatus, SubscriptionStatus, CheckInMethod, PaymentStatus, PaymentMethod, InvoiceStatus, ExpenseCategory, PayoutStatus, ProductType, MemberPassStatus } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -46,6 +46,7 @@ async function main() {
   // Clear existing data (in correct order due to foreign keys)
   await prisma.booking.deleteMany({});
   await prisma.checkIn.deleteMany({});
+  await prisma.memberPass.deleteMany({});
   await prisma.classSession.deleteMany({});
   await prisma.class.deleteMany({});
   await prisma.invoiceItem.deleteMany({});
@@ -54,6 +55,7 @@ async function main() {
   await prisma.expense.deleteMany({});
   await prisma.payout.deleteMany({});
   await prisma.subscription.deleteMany({});
+  await prisma.product.deleteMany({});
   await prisma.member.deleteMany({});
   await prisma.membershipPlan.deleteMany({});
   await prisma.staff.deleteMany({});
@@ -638,6 +640,135 @@ async function main() {
 
   console.log('Created', payoutData.length, 'payouts');
 
+  // ========== PASS PRODUCTS & MEMBER PASSES ==========
+
+  // Create pass products
+  const tenClassPack = await prisma.product.create({
+    data: {
+      name: '10-Class Pack',
+      description: 'Bundle of 10 class credits. Use at your own pace.',
+      priceAmount: 120.00,
+      type: ProductType.CLASS_PACK,
+      classCredits: 10,
+      validityDays: 90,
+      isActive: true,
+      gymId: gym.id,
+    },
+  });
+
+  const fiveClassPack = await prisma.product.create({
+    data: {
+      name: '5-Class Pack',
+      description: 'Starter pack with 5 class credits.',
+      priceAmount: 70.00,
+      type: ProductType.CLASS_PACK,
+      classCredits: 5,
+      validityDays: 60,
+      isActive: true,
+      gymId: gym.id,
+    },
+  });
+
+  const dropInPass = await prisma.product.create({
+    data: {
+      name: 'Drop-In Session',
+      description: 'Single visit — no commitment.',
+      priceAmount: 18.00,
+      type: ProductType.DROP_IN,
+      classCredits: 1,
+      validityDays: null,
+      isActive: true,
+      gymId: gym.id,
+    },
+  });
+
+  console.log('Created 3 pass products');
+
+  // Assign passes to a few members
+  // Member 3 (Sofia Rodriguez, medium activity) — 10-class pack, 6 remaining
+  const sofiaPass = await prisma.memberPass.create({
+    data: {
+      status: MemberPassStatus.ACTIVE,
+      creditsTotal: 10,
+      creditsRemaining: 6,
+      activatedAt: randomDate(30),
+      expiresAt: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000), // 60 days from now
+      memberId: members[3].id,
+      productId: tenClassPack.id,
+      gymId: gym.id,
+    },
+  });
+
+  // Member 6 (Noah Garcia, low activity) — 5-class pack, 1 remaining (almost depleted)
+  const noahPass = await prisma.memberPass.create({
+    data: {
+      status: MemberPassStatus.ACTIVE,
+      creditsTotal: 5,
+      creditsRemaining: 1,
+      activatedAt: randomDate(45),
+      expiresAt: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000), // 15 days from now (expiring soon)
+      memberId: members[6].id,
+      productId: fiveClassPack.id,
+      gymId: gym.id,
+    },
+  });
+
+  // Member 7 (Ava Martinez, low activity) — drop-in, depleted
+  await prisma.memberPass.create({
+    data: {
+      status: MemberPassStatus.DEPLETED,
+      creditsTotal: 1,
+      creditsRemaining: 0,
+      activatedAt: randomDate(10),
+      memberId: members[7].id,
+      productId: dropInPass.id,
+      gymId: gym.id,
+    },
+  });
+
+  // Member 17 (Harper Harris, high activity) — 10-class pack, 8 remaining (just started)
+  await prisma.memberPass.create({
+    data: {
+      status: MemberPassStatus.ACTIVE,
+      creditsTotal: 10,
+      creditsRemaining: 8,
+      activatedAt: randomDate(5),
+      expiresAt: new Date(Date.now() + 85 * 24 * 60 * 60 * 1000), // 85 days from now
+      memberId: members[17].id,
+      productId: tenClassPack.id,
+      gymId: gym.id,
+    },
+  });
+
+  console.log('Created 4 member passes');
+
+  // Create a few check-ins linked to passes
+  await prisma.checkIn.create({
+    data: {
+      memberId: members[3].id,
+      gymId: gym.id,
+      checkedInAt: randomDate(5),
+      checkedOutAt: randomDate(4),
+      method: CheckInMethod.QR_CODE,
+      memberPassId: sofiaPass.id,
+      creditsUsed: 1,
+    },
+  });
+
+  await prisma.checkIn.create({
+    data: {
+      memberId: members[6].id,
+      gymId: gym.id,
+      checkedInAt: randomDate(3),
+      method: CheckInMethod.MANUAL,
+      memberPassId: noahPass.id,
+      creditsUsed: 1,
+      notes: 'Used pass credit for open gym visit',
+    },
+  });
+
+  console.log('Created 2 pass-linked check-ins');
+
   console.log('');
   console.log('========================================');
   console.log('           SEEDING COMPLETED           ');
@@ -663,6 +794,8 @@ async function main() {
   console.log('  - 10 invoices with line items');
   console.log('  - 27 expenses across all categories');
   console.log('  - 7 payouts (paid, processing, pending, failed)');
+  console.log('  - 3 pass products (10-Class Pack, 5-Class Pack, Drop-In)');
+  console.log('  - 4 member passes (active, depleted, expiring soon)');
   console.log('');
 }
 

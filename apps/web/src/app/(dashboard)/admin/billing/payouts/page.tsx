@@ -39,6 +39,8 @@ import {
 } from 'lucide-react';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
+import { ExportButton } from '@/components/ui/export-button';
+import { type ExportColumn } from '@/lib/export';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -436,33 +438,15 @@ export default function PayoutsPage() {
     }
   };
 
-  const exportPayouts = () => {
-    const data = filteredPayouts.map(p => ({
-      'Date': formatDate(p.createdAt),
-      'Recipient': p.recipientType === 'instructor' && p.recipient
-        ? `${p.recipient.firstName} ${p.recipient.lastName}`
-        : 'Gym',
-      'Type': p.recipientType,
-      'Amount': Number(p.amount),
-      'Status': p.status,
-      'Description': p.description || '',
-      'Processed': p.processedAt ? formatDate(p.processedAt) : '',
-    }));
-
-    const headers = Object.keys(data[0] || {});
-    const csv = [
-      headers.join(','),
-      ...data.map(row => headers.map(h => `"${row[h as keyof typeof row]}"`).join(','))
-    ].join('\n');
-
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `payouts-${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+  const payoutExportColumns: ExportColumn[] = [
+    { header: 'Date', accessor: (p) => formatDate(p.createdAt) },
+    { header: 'Recipient', accessor: (p) => p.recipientType === 'instructor' && p.recipient ? `${p.recipient.firstName} ${p.recipient.lastName}` : 'Gym' },
+    { header: 'Type', accessor: (p) => p.recipientType },
+    { header: 'Amount', accessor: (p) => formatCurrency(Number(p.amount)), align: 'right' },
+    { header: 'Status', accessor: (p) => p.status },
+    { header: 'Description', accessor: (p) => p.description || '' },
+    { header: 'Processed', accessor: (p) => p.processedAt ? formatDate(p.processedAt) : '' },
+  ];
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
@@ -721,10 +705,16 @@ export default function PayoutsPage() {
                   </DropdownMenuContent>
                 </DropdownMenu>
 
-                <Button variant="outline" onClick={exportPayouts} className="rounded-xl flex-1 sm:flex-none">
-                  <Download className="w-4 h-4 sm:mr-2" />
-                  <span className="hidden sm:inline">Export</span>
-                </Button>
+                <ExportButton
+                  data={filteredPayouts}
+                  columns={payoutExportColumns}
+                  filename="payouts"
+                  pdfTitle="Payouts Report"
+                  pdfSummary={[
+                    { label: 'Total Payouts', value: `${filteredPayouts.length}` },
+                    { label: 'Total Amount', value: formatCurrency(filteredPayouts.reduce((sum, p) => sum + Number(p.amount), 0)) },
+                  ]}
+                />
               </div>
             )}
           </div>
