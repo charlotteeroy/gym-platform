@@ -41,7 +41,7 @@ services:
       npm install -g pnpm &&
       NODE_ENV=development pnpm install &&
       pnpm db:generate &&
-      pnpm db:push &&
+      cd packages/database && npx prisma db push --accept-data-loss && cd ../.. &&
       pnpm db:seed &&
       pnpm build
 
