@@ -6,3 +6,4 @@ export * from './membership.schema';
 export * from './class.schema';
 export * from './tag.schema';
 export * from './pass.schema';
+export * from './bonus-balance.schema';

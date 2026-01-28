@@ -207,6 +207,10 @@ export async function updateMemberStatus(
 type MemberWithActivity = Member & {
   visitCount?: number;
   lastActivity?: Date | null;
+  planName?: string | null;
+  subscriptionStatus?: string | null;
+  totalPassCredits?: number;
+  bonusBalanceAmount?: number;
 };
 
 /**
@@ -249,7 +253,7 @@ export async function listMembers(
   // For activity-based filtering and sorting, we need to fetch with check-in counts
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
-  // Get all matching members with their check-in counts
+  // Get all matching members with their check-in counts, subscription, passes, and bonus balance
   const membersWithCheckIns = await prisma.member.findMany({
     where: baseWhere,
     include: {
@@ -259,6 +263,19 @@ export async function listMembers(
       },
       tags: {
         include: { tag: { select: { id: true, name: true, color: true } } },
+      },
+      subscription: {
+        select: {
+          status: true,
+          plan: { select: { name: true } },
+        },
+      },
+      passes: {
+        where: { status: 'ACTIVE' },
+        select: { creditsRemaining: true },
+      },
+      bonusBalance: {
+        select: { currentBalance: true },
       },
     },
   });
@@ -291,13 +308,26 @@ export async function listMembers(
     const isDeclining = member.status === 'ACTIVE' &&
       (!lastCheckIn || lastCheckIn.checkedInAt < fourteenDaysAgo);
 
+    // Compute subscription, pass, and bonus balance summaries
+    const planName = member.subscription?.plan?.name ?? null;
+    const subscriptionStatus = member.subscription?.status ?? null;
+    const totalPassCredits = member.passes?.reduce((sum, p) => sum + p.creditsRemaining, 0) ?? 0;
+    const bonusBalanceAmount = member.bonusBalance ? Number(member.bonusBalance.currentBalance) : 0;
+
     return {
       ...member,
       checkIns: undefined, // Remove the raw checkIns array
+      passes: undefined, // Remove raw passes array
+      bonusBalance: undefined, // Remove raw bonusBalance object
+      subscription: undefined, // Remove raw subscription object
       visitCount,
       lastActivity: lastCheckIn?.checkedInAt ?? null,
       activityLevel: memberActivityLevel,
       isDeclining,
+      planName,
+      subscriptionStatus,
+      totalPassCredits,
+      bonusBalanceAmount,
     };
   });
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Search, MoreHorizontal, UserPlus, Loader2, Users, AlertTriangle, Clock, Sparkles } from 'lucide-react';
+import { Plus, Search, MoreHorizontal, UserPlus, Loader2, Users, AlertTriangle, Clock, Sparkles, DollarSign, Ticket, Tag } from 'lucide-react';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
 import { ExportButton } from '@/components/ui/export-button';
@@ -28,6 +28,10 @@ interface Member {
   visitCount?: number;
   lastActivity?: string | null;
   tags?: Array<{ tag: { id: string; name: string; color: string } }>;
+  planName?: string | null;
+  subscriptionStatus?: string | null;
+  totalPassCredits?: number;
+  bonusBalanceAmount?: number;
 }
 
 interface Tag {
@@ -150,6 +154,9 @@ export default function MembersPage() {
     { header: 'Last Name', accessor: (m) => m.lastName },
     { header: 'Email', accessor: (m) => m.email },
     { header: 'Status', accessor: (m) => m.status },
+    { header: 'Membership', accessor: (m) => m.planName || '—' },
+    { header: 'Pass Credits', accessor: (m) => m.totalPassCredits || 0 },
+    { header: 'Bonus Balance', accessor: (m) => m.bonusBalanceAmount ? `$${m.bonusBalanceAmount.toFixed(2)}` : '$0.00' },
     { header: 'Visits (30 days)', accessor: (m) => m.visitCount || 0 },
     { header: 'Tags', accessor: (m) => (m.tags || []).map((t: any) => t.tag?.name || t.name).join(', ') },
     { header: 'Joined', accessor: (m) => formatDate(m.createdAt || m.joinedAt) },
@@ -517,10 +524,25 @@ export default function MembersPage() {
                         {getStatusBadge(member.status)}
                       </div>
                       <p className="text-xs text-slate-500 truncate">{member.email}</p>
-                      <div className="flex items-center gap-2 mt-1">
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
                         <span className={`text-xs font-medium ${getActivityColor(member.visitCount || 0)}`}>
                           {member.visitCount || 0} visits
                         </span>
+                        {member.planName && (
+                          <span className="text-[10px] font-medium text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">
+                            {member.planName}
+                          </span>
+                        )}
+                        {(member.totalPassCredits ?? 0) > 0 && (
+                          <span className="text-[10px] font-medium text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">
+                            {member.totalPassCredits} credits
+                          </span>
+                        )}
+                        {(member.bonusBalanceAmount ?? 0) > 0 && (
+                          <span className="text-[10px] font-medium text-green-600 bg-green-50 px-1.5 py-0.5 rounded">
+                            ${member.bonusBalanceAmount?.toFixed(2)}
+                          </span>
+                        )}
                         {member.tags && member.tags.length > 0 && (
                           <div className="flex gap-1">
                             {member.tags.slice(0, 2).map((mt) => (
@@ -558,9 +580,11 @@ export default function MembersPage() {
                     <tr>
                       <th className="px-5 py-3 font-medium">Member</th>
                       <th className="px-5 py-3 font-medium">Status</th>
+                      <th className="px-5 py-3 font-medium">Membership</th>
+                      <th className="px-5 py-3 font-medium">Passes</th>
+                      <th className="px-5 py-3 font-medium">Bonus</th>
                       <th className="px-5 py-3 font-medium">Activity</th>
                       <th className="px-5 py-3 font-medium">Tags</th>
-                      <th className="px-5 py-3 font-medium">Joined</th>
                       <th className="px-5 py-3 font-medium w-10"></th>
                     </tr>
                   </thead>
@@ -583,6 +607,35 @@ export default function MembersPage() {
                           </div>
                         </td>
                         <td className="px-5 py-4">{getStatusBadge(member.status)}</td>
+                        <td className="px-5 py-4">
+                          {member.planName ? (
+                            <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-700 bg-slate-100 px-2 py-1 rounded-md">
+                              {member.planName}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-slate-400">—</span>
+                          )}
+                        </td>
+                        <td className="px-5 py-4">
+                          {(member.totalPassCredits ?? 0) > 0 ? (
+                            <span className="inline-flex items-center gap-1 text-xs font-medium text-indigo-700 bg-indigo-50 px-2 py-1 rounded-md">
+                              <Ticket className="w-3 h-3" />
+                              {member.totalPassCredits}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-slate-400">—</span>
+                          )}
+                        </td>
+                        <td className="px-5 py-4">
+                          {(member.bonusBalanceAmount ?? 0) > 0 ? (
+                            <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 px-2 py-1 rounded-md">
+                              <DollarSign className="w-3 h-3" />
+                              {member.bonusBalanceAmount?.toFixed(2)}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-slate-400">—</span>
+                          )}
+                        </td>
                         <td className="px-5 py-4">
                           <div className="flex items-center gap-2">
                             <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
@@ -616,7 +669,6 @@ export default function MembersPage() {
                             )}
                           </div>
                         </td>
-                        <td className="px-5 py-4 text-slate-500">{formatDate(member.joinedAt || member.createdAt)}</td>
                         <td className="px-5 py-4" onClick={(e) => e.stopPropagation()}>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>

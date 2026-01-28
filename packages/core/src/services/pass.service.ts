@@ -1,6 +1,7 @@
 import { prisma } from '@gym/database';
 import type { MemberPassStatus } from '@gym/database';
 import type { PassBalance, MemberAccessSummary } from '@gym/shared';
+import { addBonusBalance, deductBonusBalance } from './bonus-balance.service';
 
 const ERROR_CODES = {
   NOT_FOUND: 'NOT_FOUND',
@@ -107,6 +108,21 @@ export async function activatePass(
     },
   });
 
+  // Credit bonus balance equal to pass price
+  const priceAmount = Number(product.priceAmount);
+  if (priceAmount > 0) {
+    await addBonusBalance(
+      memberId,
+      gymId,
+      priceAmount,
+      'PASS_PURCHASE',
+      'pass',
+      memberPass.id,
+      `${product.name} purchased`,
+      'system'
+    );
+  }
+
   return { success: true, data: memberPass };
 }
 
@@ -116,6 +132,7 @@ export async function deductCredit(
 ): Promise<PassResult> {
   const pass = await prisma.memberPass.findUnique({
     where: { id: memberPassId },
+    include: { product: true },
   });
 
   if (!pass) {
@@ -161,6 +178,27 @@ export async function deductCredit(
       status: newRemaining === 0 ? 'DEPLETED' : 'ACTIVE',
     },
   });
+
+  // Deduct per-class value from bonus balance
+  const classCredits = pass.product.classCredits ?? 1;
+  const priceAmount = Number(pass.product.priceAmount);
+  if (priceAmount > 0 && classCredits > 0) {
+    const perClassValue = priceAmount / classCredits;
+    await deductBonusBalance(
+      pass.memberId,
+      pass.gymId,
+      perClassValue * amount,
+      'CLASS_ATTENDED',
+      'pass',
+      pass.id,
+      `${pass.product.name} - class attended`,
+      'system'
+    ).catch((err) => {
+      // Don't fail the credit deduction if bonus balance deduction fails
+      // (e.g., insufficient balance from manual adjustments)
+      console.warn('Bonus balance deduction failed:', err);
+    });
+  }
 
   return { success: true, data: updated };
 }

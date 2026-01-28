@@ -304,3 +304,14 @@ export {
   cancelPass,
   getPassById,
 } from './pass.service';
+
+// Bonus Balance service
+export {
+  type BonusBalanceResult,
+  getOrCreateBonusBalance,
+  getBonusBalance,
+  hasSufficientBalance,
+  addBonusBalance,
+  deductBonusBalance,
+  getTransactionHistory,
+} from './bonus-balance.service';

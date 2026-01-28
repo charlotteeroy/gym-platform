@@ -11,6 +11,9 @@ import {
   X,
   Users,
   Clock,
+  ChevronRight,
+  Calendar,
+  AlertTriangle,
 } from 'lucide-react';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
@@ -23,6 +26,36 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import Link from 'next/link';
+import { Badge } from '@/components/ui/badge';
+
+interface MemberPass {
+  id: string;
+  status: string;
+  creditsTotal: number;
+  creditsRemaining: number;
+  expiresAt: string | null;
+  createdAt: string;
+  member: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+  product: {
+    name: string;
+    type: string;
+    priceAmount: number;
+    classCredits: number | null;
+  };
+}
+
+interface MemberPassStats {
+  active: number;
+  depleted: number;
+  expired: number;
+  totalCreditsInUse: number;
+}
 
 interface PassProduct {
   id: string;
@@ -38,8 +71,46 @@ interface PassProduct {
   };
 }
 
+function PassStatusBadge({ status }: { status: string }) {
+  if (status === 'ACTIVE') {
+    return (
+      <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700">
+        Active
+      </span>
+    );
+  }
+  if (status === 'DEPLETED') {
+    return (
+      <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-slate-100 text-slate-500">
+        Depleted
+      </span>
+    );
+  }
+  if (status === 'EXPIRED') {
+    return (
+      <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-red-100 text-red-700">
+        Expired
+      </span>
+    );
+  }
+  if (status === 'CANCELLED') {
+    return (
+      <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700">
+        Cancelled
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-700">
+      {status}
+    </span>
+  );
+}
+
 export default function PassesPage() {
   const [passProducts, setPassProducts] = useState<PassProduct[]>([]);
+  const [memberPasses, setMemberPasses] = useState<MemberPass[]>([]);
+  const [memberPassStats, setMemberPassStats] = useState<MemberPassStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showPassModal, setShowPassModal] = useState(false);
@@ -58,6 +129,7 @@ export default function PassesPage() {
 
   useEffect(() => {
     fetchPassProducts();
+    fetchMemberPasses();
   }, []);
 
   const fetchPassProducts = async () => {
@@ -74,6 +146,19 @@ export default function PassesPage() {
       setError('Failed to load passes');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchMemberPasses = async () => {
+    try {
+      const response = await fetch('/api/admin/passes/members');
+      const data = await response.json();
+      if (data.success) {
+        setMemberPasses(data.data.passes);
+        setMemberPassStats(data.data.stats);
+      }
+    } catch {
+      // Member passes are secondary
     }
   };
 
@@ -367,6 +452,136 @@ export default function PassesPage() {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+        {/* All Member Passes */}
+        {memberPasses.length > 0 && (
+          <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+            <div className="p-5 border-b border-slate-100">
+              <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+                <Calendar className="w-5 h-5" />
+                All Member Passes
+              </h2>
+              <p className="text-sm text-slate-500 mt-1">
+                {memberPasses.length} total &middot;{' '}
+                {memberPassStats?.active ?? 0} active
+                {(memberPassStats?.depleted ?? 0) > 0 && (
+                  <span> &middot; {memberPassStats?.depleted} depleted</span>
+                )}
+                {(memberPassStats?.expired ?? 0) > 0 && (
+                  <span className="text-amber-600">
+                    {' '}&middot; {memberPassStats?.expired} expired
+                  </span>
+                )}
+              </p>
+            </div>
+
+            {/* Mobile Card View */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {memberPasses.map((mp) => {
+                const isExpiringSoon = mp.expiresAt &&
+                  new Date(mp.expiresAt).getTime() - Date.now() < 7 * 24 * 60 * 60 * 1000 &&
+                  mp.status === 'ACTIVE';
+                return (
+                  <Link
+                    key={mp.id}
+                    href={`/members/${mp.member.id}`}
+                    className="flex items-center gap-3 p-4 hover:bg-slate-50 transition-colors"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <p className="font-medium text-sm truncate">
+                          {mp.member.firstName} {mp.member.lastName}
+                        </p>
+                        <PassStatusBadge status={mp.status} />
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-slate-500 flex-wrap">
+                        <Badge variant="outline" className="text-[10px]">{mp.product.name}</Badge>
+                        <span>
+                          {mp.creditsRemaining}/{mp.creditsTotal} credits
+                        </span>
+                        {isExpiringSoon && (
+                          <span className="text-amber-600 flex items-center gap-0.5">
+                            <AlertTriangle className="w-3 h-3" /> Expiring soon
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-slate-400 flex-shrink-0" />
+                  </Link>
+                );
+              })}
+            </div>
+
+            {/* Desktop Table View */}
+            <div className="hidden md:block px-5 pb-5">
+              <table className="w-full text-sm">
+                <thead className="text-left text-slate-500 border-b">
+                  <tr>
+                    <th className="pb-3 font-medium">Member</th>
+                    <th className="pb-3 font-medium">Pass</th>
+                    <th className="pb-3 font-medium">Status</th>
+                    <th className="pb-3 font-medium">Credits</th>
+                    <th className="pb-3 font-medium">Expires</th>
+                    <th className="pb-3 font-medium w-10"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {memberPasses.map((mp) => {
+                    const pct = mp.creditsTotal > 0
+                      ? Math.round((mp.creditsRemaining / mp.creditsTotal) * 100)
+                      : 0;
+                    return (
+                      <tr key={mp.id} className="hover:bg-slate-50">
+                        <td className="py-3">
+                          <div className="font-medium">
+                            {mp.member.firstName} {mp.member.lastName}
+                          </div>
+                          <div className="text-xs text-slate-500">{mp.member.email}</div>
+                        </td>
+                        <td className="py-3">
+                          <Badge variant="outline">{mp.product.name}</Badge>
+                        </td>
+                        <td className="py-3">
+                          <PassStatusBadge status={mp.status} />
+                        </td>
+                        <td className="py-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full rounded-full ${
+                                  pct > 50 ? 'bg-indigo-500' : pct > 20 ? 'bg-amber-500' : 'bg-red-500'
+                                }`}
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                            <span className="text-xs font-medium text-slate-600 whitespace-nowrap">
+                              {mp.creditsRemaining}/{mp.creditsTotal}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-3 text-slate-500">
+                          {mp.expiresAt
+                            ? new Date(mp.expiresAt).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric',
+                              })
+                            : 'No expiry'}
+                        </td>
+                        <td className="py-3">
+                          <Link href={`/members/${mp.member.id}`}>
+                            <Button variant="ghost" size="icon">
+                              <ChevronRight className="h-4 w-4" />
+                            </Button>
+                          </Link>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>

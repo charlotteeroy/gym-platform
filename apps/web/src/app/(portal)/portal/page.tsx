@@ -2,11 +2,11 @@ import { getSession } from '@/lib/auth';
 import { prisma } from '@gym/database';
 import { redirect } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar, Dumbbell, TrendingUp, Trophy, Target, Flame, History, Ticket } from 'lucide-react';
+import { Calendar, Dumbbell, TrendingUp, Trophy, Target, Flame, History, Ticket, DollarSign } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { getMemberPasses } from '@gym/core';
+import { getMemberPasses, getBonusBalance } from '@gym/core';
 
 function formatDateDisplay(date: Date, format: 'day' | 'time' | 'full'): string {
   const d = new Date(date);
@@ -108,8 +108,11 @@ async function getMemberData() {
     }
   }
 
-  // Get pass credits
-  const passes = await getMemberPasses(member.id);
+  // Get pass credits and bonus balance
+  const [passes, bonusBalanceAmount] = await Promise.all([
+    getMemberPasses(member.id),
+    getBonusBalance(member.id),
+  ]);
   const activePasses = passes.filter((p: { status: string }) => p.status === 'ACTIVE');
   const totalPassCredits = activePasses.reduce(
     (sum: number, p: { creditsRemaining: number }) => sum + p.creditsRemaining,
@@ -126,6 +129,7 @@ async function getMemberData() {
     totalClassesAttended: pastClasses.length,
     activePasses,
     totalPassCredits,
+    bonusBalance: bonusBalanceAmount,
   };
 }
 
@@ -145,6 +149,7 @@ export default async function PortalHomePage() {
     streak,
     activePasses,
     totalPassCredits,
+    bonusBalance,
   } = data;
 
   const subscription = member.subscription;
@@ -206,7 +211,7 @@ export default async function PortalHomePage() {
       </Card>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Membership</CardTitle>
@@ -272,6 +277,20 @@ export default async function PortalHomePage() {
               <p className="text-xs text-muted-foreground">
                 {subscription?.plan?.classCredits === -1 ? 'Unlimited' : 'Available'}
               </p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Bonus Balance */}
+        {bonusBalance > 0 && (
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Bonus Balance</CardTitle>
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">${bonusBalance.toFixed(2)}</div>
+              <p className="text-xs text-muted-foreground">Use toward any purchase</p>
             </CardContent>
           </Card>
         )}

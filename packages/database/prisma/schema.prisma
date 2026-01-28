@@ -73,6 +73,8 @@ model Gym {
   policies             GymPolicy[]
   opportunities        Opportunity[]
   memberPasses         MemberPass[]
+  bonusBalances            BonusBalance[]
+  bonusBalanceTransactions BonusBalanceTransaction[]
 
   // Canadian Accounting Compliance
   taxConfiguration     TaxConfiguration?
@@ -170,6 +172,8 @@ model Member {
   failedPayments     FailedPaymentAttempt[]
   opportunities      Opportunity[]
   passes             MemberPass[]
+  bonusBalance             BonusBalance?
+  bonusBalanceTransactions BonusBalanceTransaction[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1362,4 +1366,52 @@ model MemberPass {
   @@index([memberId])
   @@index([status])
   @@index([expiresAt])
+}
+
+// ============================================
+// BONUS BALANCE
+// ============================================
+
+enum BonusBalanceTxnType {
+  PASS_PURCHASE
+  CLASS_ATTENDED
+  PURCHASE_APPLIED
+  MANUAL_ADJUSTMENT
+  PROMO_BONUS
+}
+
+model BonusBalance {
+  id             String   @id @default(cuid())
+  currentBalance Decimal  @db.Decimal(10, 2) @default(0)
+
+  memberId String @unique
+  member   Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  gymId    String
+  gym      Gym    @relation(fields: [gymId], references: [id], onDelete: Cascade)
+
+  updatedAt DateTime @updatedAt
+
+  @@index([gymId])
+}
+
+model BonusBalanceTransaction {
+  id            String              @id @default(cuid())
+  type          BonusBalanceTxnType
+  amount        Decimal             @db.Decimal(10, 2)
+  balanceAfter  Decimal             @db.Decimal(10, 2)
+  referenceType String?
+  referenceId   String?
+  description   String
+  createdBy     String
+
+  memberId String
+  member   Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  gymId    String
+  gym      Gym    @relation(fields: [gymId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([memberId])
+  @@index([gymId])
+  @@index([createdAt])
 }
