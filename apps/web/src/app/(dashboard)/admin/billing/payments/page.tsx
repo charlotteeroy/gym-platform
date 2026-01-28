@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import {
   CreditCard,
@@ -34,7 +34,10 @@ import {
   Phone,
   List,
   Plus,
+  BarChart3,
 } from 'lucide-react';
+import { BillingChartPanel, PaymentsChart, ChartFilterState, PaymentsChartData } from '@/components/billing';
+import { getDateRangeFromPreset, filterByDateRange, aggregateByTimePeriodMulti, groupByField } from '@/lib/chart-utils';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
 import { ExportButton } from '@/components/ui/export-button';
@@ -185,6 +188,13 @@ export default function PaymentsPage() {
     totalPayments: 0,
   });
 
+  // Chart state
+  const [showChart, setShowChart] = useState(false);
+  const [chartFilters, setChartFilters] = useState<ChartFilterState>({
+    dateRange: '30d',
+    grouping: 'daily',
+  });
+
   // New payment modal state
   const [showNewPaymentModal, setShowNewPaymentModal] = useState(false);
   const [members, setMembers] = useState<SimpleMember[]>([]);
@@ -199,6 +209,55 @@ export default function PaymentsPage() {
     externalName: '',
     externalEmail: '',
   });
+
+  // Compute chart data
+  const chartData = useMemo((): PaymentsChartData => {
+    const { startDate: chartStart, endDate: chartEnd } = getDateRangeFromPreset(
+      chartFilters.dateRange,
+      chartFilters.customStartDate,
+      chartFilters.customEndDate
+    );
+
+    // Filter payments by chart date range
+    const chartPayments = filterByDateRange(payments, 'createdAt', chartStart, chartEnd);
+
+    // Aggregate by time and status
+    const timeSeries = aggregateByTimePeriodMulti(
+      chartPayments,
+      'createdAt',
+      'amount',
+      'status',
+      chartFilters.grouping,
+      chartStart,
+      chartEnd
+    );
+
+    // Group by status
+    const byStatusRaw = groupByField(chartPayments, 'status', 'amount');
+    const byStatus = byStatusRaw.map((item) => ({
+      status: item.key,
+      amount: item.value,
+      count: item.count,
+    }));
+
+    // Group by method
+    const byMethodRaw = groupByField(chartPayments, 'method', 'amount');
+    const byMethod = byMethodRaw.map((item) => ({
+      method: item.key,
+      amount: item.value,
+      count: item.count,
+    }));
+
+    // Calculate totals
+    const totals = {
+      total: chartPayments.reduce((sum, p) => sum + Number(p.amount), 0),
+      completed: chartPayments.filter((p) => p.status === 'COMPLETED').reduce((sum, p) => sum + Number(p.amount), 0),
+      pending: chartPayments.filter((p) => p.status === 'PENDING').reduce((sum, p) => sum + Number(p.amount), 0),
+      failed: chartPayments.filter((p) => p.status === 'FAILED').reduce((sum, p) => sum + Number(p.amount), 0),
+    };
+
+    return { timeSeries, byStatus, byMethod, totals };
+  }, [payments, chartFilters]);
 
   useEffect(() => {
     fetchAllData();
@@ -923,6 +982,15 @@ export default function PaymentsPage() {
                     {sortOrder === 'desc' ? 'Newest' : 'Oldest'}
                   </Button>
 
+                  <Button
+                    variant={showChart ? 'default' : 'outline'}
+                    onClick={() => setShowChart(!showChart)}
+                    className={`rounded-xl whitespace-nowrap ${showChart ? 'bg-slate-900 hover:bg-slate-800' : ''}`}
+                  >
+                    <BarChart3 className="w-4 h-4 mr-2" />
+                    {showChart ? 'Hide Charts' : 'Charts'}
+                  </Button>
+
                   <ExportButton
                     data={filteredPayments}
                     columns={paymentExportColumns}
@@ -1005,6 +1073,21 @@ export default function PaymentsPage() {
                 </div>
               )}
             </div>
+
+            {/* Chart Panel */}
+            {showChart && (
+              <BillingChartPanel
+                title="Payment Analytics"
+                description="Revenue trends and payment method breakdown"
+                isVisible={showChart}
+                onToggle={() => setShowChart(false)}
+                filterState={chartFilters}
+                onFilterChange={setChartFilters}
+                isLoading={isLoading}
+              >
+                <PaymentsChart data={chartData} />
+              </BillingChartPanel>
+            )}
 
             {/* Transactions List */}
             <div className="bg-white rounded-2xl shadow-sm overflow-hidden" ref={dropdownRef}>

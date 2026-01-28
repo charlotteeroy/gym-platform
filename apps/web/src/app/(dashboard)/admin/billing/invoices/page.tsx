@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
@@ -28,7 +28,10 @@ import {
   DollarSign,
   Building2,
   ChevronDown,
+  BarChart3,
 } from 'lucide-react';
+import { BillingChartPanel, InvoicesChart, ChartFilterState, InvoicesChartData } from '@/components/billing';
+import { getDateRangeFromPreset, filterByDateRange, aggregateByTimePeriodMulti, groupByField } from '@/lib/chart-utils';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
 import { ExportButton } from '@/components/ui/export-button';
@@ -140,6 +143,85 @@ export default function InvoicesPage() {
     notes: '',
     status: 'DRAFT' as 'DRAFT' | 'SENT',
   });
+
+  // Chart state
+  const [showChart, setShowChart] = useState(false);
+  const [chartFilters, setChartFilters] = useState<ChartFilterState>({
+    dateRange: '30d',
+    grouping: 'daily',
+  });
+
+  // Compute chart data
+  const chartData = useMemo((): InvoicesChartData => {
+    const { startDate: chartStart, endDate: chartEnd } = getDateRangeFromPreset(
+      chartFilters.dateRange,
+      chartFilters.customStartDate,
+      chartFilters.customEndDate
+    );
+
+    const chartInvoices = filterByDateRange(invoices, 'createdAt', chartStart, chartEnd);
+
+    const timeSeries = aggregateByTimePeriodMulti(
+      chartInvoices,
+      'createdAt',
+      'total',
+      'status',
+      chartFilters.grouping,
+      chartStart,
+      chartEnd
+    );
+
+    const byStatusRaw = groupByField(chartInvoices, 'status', 'total');
+    const byStatus = byStatusRaw.map((item) => ({
+      status: item.key,
+      total: item.value,
+      count: item.count,
+    }));
+
+    // Calculate aging buckets
+    const now = new Date();
+    const agingBuckets = [
+      { bucket: 'Current', amount: 0, count: 0 },
+      { bucket: '1-30 days', amount: 0, count: 0 },
+      { bucket: '31-60 days', amount: 0, count: 0 },
+      { bucket: '61-90 days', amount: 0, count: 0 },
+      { bucket: '90+ days', amount: 0, count: 0 },
+    ];
+
+    chartInvoices
+      .filter((inv) => inv.status === 'SENT' || inv.status === 'OVERDUE')
+      .forEach((inv) => {
+        const dueDate = new Date(inv.dueDate);
+        const daysOverdue = Math.floor((now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+        const amount = Number(inv.total);
+
+        if (daysOverdue <= 0) {
+          agingBuckets[0].amount += amount;
+          agingBuckets[0].count++;
+        } else if (daysOverdue <= 30) {
+          agingBuckets[1].amount += amount;
+          agingBuckets[1].count++;
+        } else if (daysOverdue <= 60) {
+          agingBuckets[2].amount += amount;
+          agingBuckets[2].count++;
+        } else if (daysOverdue <= 90) {
+          agingBuckets[3].amount += amount;
+          agingBuckets[3].count++;
+        } else {
+          agingBuckets[4].amount += amount;
+          agingBuckets[4].count++;
+        }
+      });
+
+    const totals = {
+      total: chartInvoices.reduce((sum, i) => sum + Number(i.total), 0),
+      paid: chartInvoices.filter((i) => i.status === 'PAID').reduce((sum, i) => sum + Number(i.total), 0),
+      outstanding: chartInvoices.filter((i) => i.status === 'SENT').reduce((sum, i) => sum + Number(i.total), 0),
+      overdue: chartInvoices.filter((i) => i.status === 'OVERDUE').reduce((sum, i) => sum + Number(i.total), 0),
+    };
+
+    return { timeSeries, byStatus, agingBuckets, totals };
+  }, [invoices, chartFilters]);
 
   useEffect(() => {
     fetchInvoices();
@@ -641,6 +723,15 @@ export default function InvoicesPage() {
                 </DropdownMenuContent>
               </DropdownMenu>
 
+              <Button
+                variant={showChart ? 'default' : 'outline'}
+                onClick={() => setShowChart(!showChart)}
+                className={`rounded-xl ${showChart ? 'bg-slate-900 hover:bg-slate-800' : ''}`}
+              >
+                <BarChart3 className="w-4 h-4 mr-2" />
+                {showChart ? 'Hide Charts' : 'Charts'}
+              </Button>
+
               <ExportButton
                 data={filteredInvoices}
                 columns={invoiceExportColumns}
@@ -659,6 +750,21 @@ export default function InvoicesPage() {
             </div>
           </div>
         </div>
+
+        {/* Chart Panel */}
+        {showChart && (
+          <BillingChartPanel
+            title="Invoice Analytics"
+            description="Invoice trends and status breakdown"
+            isVisible={showChart}
+            onToggle={() => setShowChart(false)}
+            filterState={chartFilters}
+            onFilterChange={setChartFilters}
+            isLoading={isLoading}
+          >
+            <InvoicesChart data={chartData} />
+          </BillingChartPanel>
+        )}
 
         {/* Selection Bar */}
         {selectedInvoices.length > 0 && (
