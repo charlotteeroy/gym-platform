@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Dumbbell, Calendar, CreditCard, User, LogOut, Home, Menu, X } from 'lucide-react';
+import { Dumbbell, Calendar, CreditCard, User, LogOut, Home, Menu, X, ShoppingBag } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 
@@ -37,6 +37,7 @@ export function PortalNav({ gymName, memberFirstName }: PortalNavProps) {
     { href: '/classes', icon: Calendar, label: 'Classes' },
     { href: '/portal/bookings', icon: Dumbbell, label: 'Bookings' },
     { href: '/portal/membership', icon: CreditCard, label: 'Membership' },
+    { href: '/portal/shop', icon: ShoppingBag, label: 'Shop' },
     { href: '/portal/profile', icon: User, label: 'Profile' },
   ];
 
