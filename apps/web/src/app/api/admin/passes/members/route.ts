@@ -28,7 +28,7 @@ export async function GET() {
             name: true,
             type: true,
             priceAmount: true,
-            classCredits: true,
+            bonusCount: true,
           },
         },
       },
@@ -39,17 +39,17 @@ export async function GET() {
       active: memberPasses.filter((p) => p.status === 'ACTIVE').length,
       depleted: memberPasses.filter((p) => p.status === 'DEPLETED').length,
       expired: memberPasses.filter((p) => p.status === 'EXPIRED').length,
-      totalCreditsInUse: memberPasses
+      totalBonusInUse: memberPasses
         .filter((p) => p.status === 'ACTIVE')
-        .reduce((sum, p) => sum + p.creditsRemaining, 0),
+        .reduce((sum, p) => sum + p.bonusRemaining, 0),
     };
 
     return apiSuccess({
       passes: memberPasses.map((p) => ({
         id: p.id,
         status: p.status,
-        creditsTotal: p.creditsTotal,
-        creditsRemaining: p.creditsRemaining,
+        bonusTotal: p.bonusTotal,
+        bonusRemaining: p.bonusRemaining,
         expiresAt: p.expiresAt?.toISOString() ?? null,
         createdAt: p.createdAt.toISOString(),
         member: p.member,
@@ -57,7 +57,7 @@ export async function GET() {
           name: p.product.name,
           type: p.product.type,
           priceAmount: Number(p.product.priceAmount),
-          classCredits: p.product.classCredits,
+          bonusCount: p.product.bonusCount,
         },
       })),
       stats,

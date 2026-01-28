@@ -8,7 +8,7 @@ import {
   type ApiError,
 } from '@gym/shared';
 import { hashPassword } from './auth.service';
-import { getActivePasses, deductCredit } from './pass.service';
+import { getActivePasses, deductBonus } from './pass.service';
 
 export type MemberResult =
   | { success: true; member: Member }
@@ -209,8 +209,7 @@ type MemberWithActivity = Member & {
   lastActivity?: Date | null;
   planName?: string | null;
   subscriptionStatus?: string | null;
-  totalPassCredits?: number;
-  bonusBalanceAmount?: number;
+  totalBonuses?: number;
 };
 
 /**
@@ -272,10 +271,7 @@ export async function listMembers(
       },
       passes: {
         where: { status: 'ACTIVE' },
-        select: { creditsRemaining: true },
-      },
-      bonusBalance: {
-        select: { currentBalance: true },
+        select: { bonusRemaining: true },
       },
     },
   });
@@ -308,17 +304,15 @@ export async function listMembers(
     const isDeclining = member.status === 'ACTIVE' &&
       (!lastCheckIn || lastCheckIn.checkedInAt < fourteenDaysAgo);
 
-    // Compute subscription, pass, and bonus balance summaries
+    // Compute subscription and pass summaries
     const planName = member.subscription?.plan?.name ?? null;
     const subscriptionStatus = member.subscription?.status ?? null;
-    const totalPassCredits = member.passes?.reduce((sum, p) => sum + p.creditsRemaining, 0) ?? 0;
-    const bonusBalanceAmount = member.bonusBalance ? Number(member.bonusBalance.currentBalance) : 0;
+    const totalBonuses = member.passes?.reduce((sum, p) => sum + p.bonusRemaining, 0) ?? 0;
 
     return {
       ...member,
       checkIns: undefined, // Remove the raw checkIns array
       passes: undefined, // Remove raw passes array
-      bonusBalance: undefined, // Remove raw bonusBalance object
       subscription: undefined, // Remove raw subscription object
       visitCount,
       lastActivity: lastCheckIn?.checkedInAt ?? null,
@@ -326,8 +320,7 @@ export async function listMembers(
       isDeclining,
       planName,
       subscriptionStatus,
-      totalPassCredits,
-      bonusBalanceAmount,
+      totalBonuses,
     };
   });
 
@@ -431,13 +424,13 @@ export async function checkInMember(
     (member.subscription.status === 'ACTIVE' || member.subscription.status === 'PAST_DUE');
 
   let memberPassId: string | undefined;
-  let creditsUsed = 0;
+  let bonusUsed = 0;
 
   if (hasActiveSubscription) {
     // Subscription-based check-in — no pass needed
   } else if (options?.memberPassId) {
-    // Pass-based check-in — deduct credit
-    const result = await deductCredit(options.memberPassId, 1);
+    // Pass-based check-in — deduct bonus
+    const result = await deductBonus(options.memberPassId, 1);
     if (!result.success) {
       return {
         success: false,
@@ -448,14 +441,14 @@ export async function checkInMember(
       };
     }
     memberPassId = options.memberPassId;
-    creditsUsed = 1;
+    bonusUsed = 1;
   } else if (!options?.isOverride) {
     // No subscription, no pass specified — try to auto-select a pass
     const activePasses = await getActivePasses(memberId);
     const passToUse = activePasses[0];
     if (passToUse) {
       // Use the pass closest to expiring first
-      const result = await deductCredit(passToUse.id, 1);
+      const result = await deductBonus(passToUse.id, 1);
       if (!result.success) {
         return {
           success: false,
@@ -466,13 +459,13 @@ export async function checkInMember(
         };
       }
       memberPassId = passToUse.id;
-      creditsUsed = 1;
+      bonusUsed = 1;
     } else {
       return {
         success: false,
         error: {
           code: 'ACCESS_REQUIRED',
-          message: 'No active subscription or pass with remaining credits',
+          message: 'No active subscription or pass with remaining bonuses',
         },
       };
     }
@@ -485,7 +478,7 @@ export async function checkInMember(
       gymId: member.gymId,
       method,
       memberPassId: memberPassId || undefined,
-      creditsUsed,
+      bonusUsed,
       isOverride: options?.isOverride || false,
       overrideBy: options?.overrideBy || undefined,
       notes: options?.notes || undefined,

@@ -18,7 +18,7 @@ export async function GET(
     const { id } = await params;
 
     const product = await prisma.product.findFirst({
-      where: { id, gymId: staff.gymId, type: { in: ['CLASS_PACK', 'DROP_IN'] } },
+      where: { id, gymId: staff.gymId, type: { in: ['CLASS_PACK', 'DROP_IN', 'COMBO'] } },
       include: {
         _count: {
           select: {
@@ -56,7 +56,7 @@ export async function PATCH(
     const { id } = await params;
 
     const existing = await prisma.product.findFirst({
-      where: { id, gymId: staff.gymId, type: { in: ['CLASS_PACK', 'DROP_IN'] } },
+      where: { id, gymId: staff.gymId, type: { in: ['CLASS_PACK', 'DROP_IN', 'COMBO'] } },
     });
 
     if (!existing) return apiNotFound('Pass product not found');
@@ -110,7 +110,7 @@ export async function DELETE(
     const { id } = await params;
 
     const product = await prisma.product.findFirst({
-      where: { id, gymId: staff.gymId, type: { in: ['CLASS_PACK', 'DROP_IN'] } },
+      where: { id, gymId: staff.gymId, type: { in: ['CLASS_PACK', 'DROP_IN', 'COMBO'] } },
       include: {
         _count: {
           select: {

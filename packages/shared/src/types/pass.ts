@@ -1,8 +1,8 @@
 export interface PassBalance {
   passId: string;
   productName: string;
-  creditsRemaining: number;
-  creditsTotal: number;
+  bonusRemaining: number;
+  bonusTotal: number;
   expiresAt: string | null;
   status: 'ACTIVE' | 'EXPIRED' | 'DEPLETED' | 'CANCELLED';
 }
@@ -10,7 +10,7 @@ export interface PassBalance {
 export interface MemberAccessSummary {
   hasActiveSubscription: boolean;
   activePasses: PassBalance[];
-  totalCreditsAvailable: number;
+  totalBonusAvailable: number;
   canCheckIn: boolean;
   accessType: 'subscription' | 'pass' | 'none';
 }

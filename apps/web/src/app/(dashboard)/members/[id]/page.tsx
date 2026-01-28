@@ -2,15 +2,15 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Loader2, Ticket, Plus, X, Clock, AlertTriangle, DollarSign, History, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { ArrowLeft, Loader2, Ticket, Plus, X, Clock, AlertTriangle } from 'lucide-react';
 import { MemberProfileHeader, MemberStatsCards, MemberTagsManager, MemberTimeline } from '@/components/members';
 import { ActivityLineChart, HourHeatmap } from '@/components/charts';
 
 interface MemberPass {
   id: string;
   status: 'ACTIVE' | 'EXPIRED' | 'DEPLETED' | 'CANCELLED';
-  creditsTotal: number;
-  creditsRemaining: number;
+  bonusTotal: number;
+  bonusRemaining: number;
   activatedAt: string;
   expiresAt: string | null;
   product: { id: string; name: string; type: string };
@@ -22,27 +22,9 @@ interface PassProduct {
   description: string | null;
   priceAmount: number;
   type: 'CLASS_PACK' | 'DROP_IN';
-  classCredits: number | null;
+  bonusCount: number | null;
   validityDays: number | null;
   isActive: boolean;
-}
-
-interface BonusBalanceTransaction {
-  id: string;
-  type: string;
-  amount: number;
-  balanceAfter: number;
-  description: string;
-  referenceType: string | null;
-  referenceId: string | null;
-  createdBy: string;
-  createdAt: string;
-}
-
-interface BonusBalanceData {
-  memberId: string;
-  currentBalance: number;
-  recentTransactions: BonusBalanceTransaction[];
 }
 
 interface Tag {
@@ -113,18 +95,6 @@ export default function MemberProfilePage() {
   const [assigningPass, setAssigningPass] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState('');
 
-  // Bonus balance state
-  const [bonusBalance, setBonusBalance] = useState<BonusBalanceData | null>(null);
-  const [showBonusHistoryModal, setShowBonusHistoryModal] = useState(false);
-  const [bonusHistoryPage, setBonusHistoryPage] = useState(1);
-  const [bonusHistoryData, setBonusHistoryData] = useState<{ transactions: BonusBalanceTransaction[]; total: number } | null>(null);
-  const [loadingBonusHistory, setLoadingBonusHistory] = useState(false);
-  const [showAdjustModal, setShowAdjustModal] = useState(false);
-  const [adjustDirection, setAdjustDirection] = useState<'add' | 'remove'>('add');
-  const [adjustAmount, setAdjustAmount] = useState('');
-  const [adjustReason, setAdjustReason] = useState('');
-  const [adjusting, setAdjusting] = useState(false);
-
   const fetchProfile = useCallback(async () => {
     try {
       const res = await fetch(`/api/members/${memberId}/profile`);
@@ -187,39 +157,11 @@ export default function MemberProfilePage() {
     }
   }, []);
 
-  const fetchBonusBalance = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/members/${memberId}/bonus-balance`);
-      const result = await res.json();
-      if (result.success) {
-        setBonusBalance(result.data);
-      }
-    } catch {
-      // Bonus balance is optional
-    }
-  }, [memberId]);
-
-  const fetchBonusHistory = useCallback(async (page: number) => {
-    setLoadingBonusHistory(true);
-    try {
-      const res = await fetch(`/api/members/${memberId}/bonus-balance/transactions?page=${page}&limit=20`);
-      const result = await res.json();
-      if (result.success) {
-        setBonusHistoryData(result.data);
-        setBonusHistoryPage(page);
-      }
-    } catch {
-      // History is optional
-    } finally {
-      setLoadingBonusHistory(false);
-    }
-  }, [memberId]);
-
   useEffect(() => {
-    Promise.all([fetchProfile(), fetchAnalytics(), fetchTags(), fetchMemberPasses(), fetchPassProducts(), fetchBonusBalance()]).finally(() => {
+    Promise.all([fetchProfile(), fetchAnalytics(), fetchTags(), fetchMemberPasses(), fetchPassProducts()]).finally(() => {
       setLoading(false);
     });
-  }, [fetchProfile, fetchAnalytics, fetchTags, fetchMemberPasses, fetchPassProducts, fetchBonusBalance]);
+  }, [fetchProfile, fetchAnalytics, fetchTags, fetchMemberPasses, fetchPassProducts]);
 
   const handleCheckIn = async () => {
     try {
@@ -286,38 +228,6 @@ export default function MemberProfilePage() {
     } finally {
       setAssigningPass(false);
     }
-  };
-
-  const handleAdjustBalance = async () => {
-    const amount = parseFloat(adjustAmount);
-    if (!amount || amount <= 0 || adjustReason.length < 10) return;
-    setAdjusting(true);
-    try {
-      const res = await fetch(`/api/members/${memberId}/bonus-balance/adjust`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount, reason: adjustReason, direction: adjustDirection }),
-      });
-      const result = await res.json();
-      if (result.success) {
-        setShowAdjustModal(false);
-        setAdjustAmount('');
-        setAdjustReason('');
-        setAdjustDirection('add');
-        await fetchBonusBalance();
-      } else {
-        alert(result.error?.message || 'Failed to adjust balance');
-      }
-    } catch {
-      alert('Failed to adjust balance');
-    } finally {
-      setAdjusting(false);
-    }
-  };
-
-  const handleOpenHistory = () => {
-    setShowBonusHistoryModal(true);
-    fetchBonusHistory(1);
   };
 
   if (loading) {
@@ -425,12 +335,12 @@ export default function MemberProfilePage() {
             </div>
           )}
 
-          {/* Passes & Credits */}
+          {/* Passes & Bonuses */}
           <div className="bg-white rounded-lg border border-slate-200 p-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-semibold text-slate-900 flex items-center gap-2">
                 <Ticket className="w-4 h-4" />
-                Passes & Credits
+                Passes & Bonuses
               </h3>
               <button
                 onClick={() => setShowAssignPassModal(true)}
@@ -446,8 +356,8 @@ export default function MemberProfilePage() {
             ) : (
               <div className="space-y-3">
                 {memberPasses.map((pass) => {
-                  const pct = pass.creditsTotal > 0
-                    ? Math.round((pass.creditsRemaining / pass.creditsTotal) * 100)
+                  const pct = pass.bonusTotal > 0
+                    ? Math.round((pass.bonusRemaining / pass.bonusTotal) * 100)
                     : 0;
                   const isExpiringSoon = pass.expiresAt &&
                     new Date(pass.expiresAt).getTime() - Date.now() < 7 * 24 * 60 * 60 * 1000;
@@ -471,7 +381,7 @@ export default function MemberProfilePage() {
                         </span>
                       </div>
 
-                      {/* Credit bar */}
+                      {/* Bonus bar */}
                       <div className="flex items-center gap-2 mb-1">
                         <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
                           <div
@@ -482,7 +392,7 @@ export default function MemberProfilePage() {
                           />
                         </div>
                         <span className="text-xs font-medium text-slate-600 whitespace-nowrap">
-                          {pass.creditsRemaining}/{pass.creditsTotal}
+                          {pass.bonusRemaining}/{pass.bonusTotal}
                         </span>
                       </div>
 
@@ -504,59 +414,6 @@ export default function MemberProfilePage() {
                 })}
               </div>
             )}
-          </div>
-
-          {/* Bonus Balance Card */}
-          <div className="bg-white rounded-lg border border-slate-200 p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-slate-900 flex items-center gap-2">
-                <DollarSign className="w-4 h-4" />
-                Bonus Balance
-              </h3>
-              <button
-                onClick={() => setShowAdjustModal(true)}
-                className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-700 font-medium"
-              >
-                Adjust
-              </button>
-            </div>
-
-            <div className="text-3xl font-bold text-slate-900 mb-3">
-              ${(bonusBalance?.currentBalance ?? 0).toFixed(2)}
-            </div>
-
-            {/* Recent transactions preview */}
-            {bonusBalance && bonusBalance.recentTransactions.length > 0 ? (
-              <div className="space-y-2 mb-3">
-                {bonusBalance.recentTransactions.slice(0, 5).map((txn) => (
-                  <div key={txn.id} className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-2 min-w-0">
-                      {txn.amount >= 0 ? (
-                        <TrendingUp className="w-3 h-3 text-green-500 flex-shrink-0" />
-                      ) : (
-                        <TrendingDown className="w-3 h-3 text-red-500 flex-shrink-0" />
-                      )}
-                      <span className="text-slate-600 truncate">{txn.description}</span>
-                    </div>
-                    <span className={`font-medium whitespace-nowrap ml-2 ${
-                      txn.amount >= 0 ? 'text-green-600' : 'text-red-600'
-                    }`}>
-                      {txn.amount >= 0 ? '+' : ''}${txn.amount.toFixed(2)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-slate-500 mb-3">No transactions yet.</p>
-            )}
-
-            <button
-              onClick={handleOpenHistory}
-              className="w-full text-center text-xs text-indigo-600 hover:text-indigo-700 font-medium flex items-center justify-center gap-1"
-            >
-              <History className="w-3 h-3" />
-              View Full History
-            </button>
           </div>
 
           {/* Recent Activity Timeline */}
@@ -621,7 +478,7 @@ export default function MemberProfilePage() {
                       <option value="">Choose a pass...</option>
                       {passProducts.map((p) => (
                         <option key={p.id} value={p.id}>
-                          {p.name} — {p.classCredits ?? 1} credit{(p.classCredits ?? 1) !== 1 ? 's' : ''}
+                          {p.name} — {p.bonusCount ?? 1} bonus{(p.bonusCount ?? 1) !== 1 ? 'es' : ''}
                           {p.validityDays ? ` (${p.validityDays} days)` : ''} — ${Number(p.priceAmount).toFixed(2)}
                         </option>
                       ))}
@@ -644,189 +501,6 @@ export default function MemberProfilePage() {
                   </div>
                 </>
               )}
-            </div>
-          </div>
-        </div>
-      )}
-      {/* Bonus Balance History Modal */}
-      {showBonusHistoryModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setShowBonusHistoryModal(false)} />
-          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 max-h-[80vh] flex flex-col">
-            <div className="flex items-center justify-between p-5 border-b border-slate-100">
-              <h2 className="text-lg font-semibold text-slate-900">Bonus Balance History</h2>
-              <button onClick={() => setShowBonusHistoryModal(false)} className="p-2 hover:bg-slate-100 rounded-lg">
-                <X className="w-5 h-5 text-slate-500" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-5">
-              {loadingBonusHistory ? (
-                <div className="flex justify-center py-8">
-                  <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
-                </div>
-              ) : bonusHistoryData && bonusHistoryData.transactions.length > 0 ? (
-                <div className="space-y-3">
-                  {bonusHistoryData.transactions.map((txn) => (
-                    <div key={txn.id} className="flex items-start justify-between py-2 border-b border-slate-50 last:border-0">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          {txn.amount >= 0 ? (
-                            <TrendingUp className="w-4 h-4 text-green-500 flex-shrink-0" />
-                          ) : (
-                            <TrendingDown className="w-4 h-4 text-red-500 flex-shrink-0" />
-                          )}
-                          <span className="text-sm font-medium text-slate-900 truncate">{txn.description}</span>
-                        </div>
-                        <div className="flex items-center gap-2 mt-1 ml-6">
-                          <span className="text-xs text-slate-400">
-                            {new Date(txn.createdAt).toLocaleDateString()} {new Date(txn.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                          <span className="text-xs px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded">
-                            {txn.type.replace(/_/g, ' ')}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="text-right ml-3 flex-shrink-0">
-                        <div className={`text-sm font-semibold ${txn.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {txn.amount >= 0 ? '+' : ''}${txn.amount.toFixed(2)}
-                        </div>
-                        <div className="text-xs text-slate-400">Bal: ${txn.balanceAfter.toFixed(2)}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-center text-sm text-slate-500 py-8">No transactions found.</p>
-              )}
-            </div>
-            {bonusHistoryData && bonusHistoryData.total > 20 && (
-              <div className="flex items-center justify-between p-4 border-t border-slate-100">
-                <button
-                  onClick={() => fetchBonusHistory(bonusHistoryPage - 1)}
-                  disabled={bonusHistoryPage <= 1}
-                  className="text-sm text-indigo-600 hover:text-indigo-700 disabled:text-slate-300 disabled:cursor-not-allowed"
-                >
-                  Previous
-                </button>
-                <span className="text-xs text-slate-500">
-                  Page {bonusHistoryPage} of {Math.ceil(bonusHistoryData.total / 20)}
-                </span>
-                <button
-                  onClick={() => fetchBonusHistory(bonusHistoryPage + 1)}
-                  disabled={bonusHistoryPage >= Math.ceil(bonusHistoryData.total / 20)}
-                  className="text-sm text-indigo-600 hover:text-indigo-700 disabled:text-slate-300 disabled:cursor-not-allowed"
-                >
-                  Next
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Adjust Balance Modal */}
-      {showAdjustModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setShowAdjustModal(false)} />
-          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md mx-4">
-            <div className="flex items-center justify-between p-5 border-b border-slate-100">
-              <h2 className="text-lg font-semibold text-slate-900">Adjust Bonus Balance</h2>
-              <button onClick={() => setShowAdjustModal(false)} className="p-2 hover:bg-slate-100 rounded-lg">
-                <X className="w-5 h-5 text-slate-500" />
-              </button>
-            </div>
-            <div className="p-5 space-y-4">
-              {/* Current balance */}
-              <div className="text-center bg-slate-50 rounded-xl p-3">
-                <div className="text-xs text-slate-500 mb-1">Current Balance</div>
-                <div className="text-2xl font-bold text-slate-900">${(bonusBalance?.currentBalance ?? 0).toFixed(2)}</div>
-              </div>
-
-              {/* Direction toggle */}
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setAdjustDirection('add')}
-                  className={`flex-1 py-2 px-3 text-sm rounded-xl border ${
-                    adjustDirection === 'add'
-                      ? 'border-green-500 bg-green-50 text-green-700 font-medium'
-                      : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                  }`}
-                >
-                  <Plus className="w-4 h-4 inline mr-1" />
-                  Add
-                </button>
-                <button
-                  onClick={() => setAdjustDirection('remove')}
-                  className={`flex-1 py-2 px-3 text-sm rounded-xl border ${
-                    adjustDirection === 'remove'
-                      ? 'border-red-500 bg-red-50 text-red-700 font-medium'
-                      : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                  }`}
-                >
-                  <Minus className="w-4 h-4 inline mr-1" />
-                  Remove
-                </button>
-              </div>
-
-              {/* Amount input */}
-              <div>
-                <label className="text-sm font-medium text-slate-700 block mb-1">Amount ($)</label>
-                <input
-                  type="number"
-                  min="0.01"
-                  step="0.01"
-                  value={adjustAmount}
-                  onChange={(e) => setAdjustAmount(e.target.value)}
-                  placeholder="0.00"
-                  className="w-full h-10 px-3 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
-                />
-              </div>
-
-              {/* Reason input */}
-              <div>
-                <label className="text-sm font-medium text-slate-700 block mb-1">Reason (min 10 characters)</label>
-                <textarea
-                  value={adjustReason}
-                  onChange={(e) => setAdjustReason(e.target.value)}
-                  placeholder="Describe the reason for this adjustment..."
-                  rows={3}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900 resize-none"
-                />
-                <div className="text-xs text-slate-400 mt-1">{adjustReason.length}/500</div>
-              </div>
-
-              {/* Preview */}
-              {adjustAmount && parseFloat(adjustAmount) > 0 && (
-                <div className="bg-slate-50 rounded-xl p-3 text-center">
-                  <div className="text-xs text-slate-500 mb-1">New Balance</div>
-                  <div className={`text-xl font-bold ${adjustDirection === 'add' ? 'text-green-600' : 'text-red-600'}`}>
-                    ${(
-                      (bonusBalance?.currentBalance ?? 0) +
-                      (adjustDirection === 'add' ? 1 : -1) * parseFloat(adjustAmount)
-                    ).toFixed(2)}
-                  </div>
-                </div>
-              )}
-
-              <div className="flex justify-end gap-3">
-                <button
-                  onClick={() => setShowAdjustModal(false)}
-                  className="px-4 py-2 text-sm rounded-xl border border-slate-200 hover:bg-slate-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleAdjustBalance}
-                  disabled={!adjustAmount || parseFloat(adjustAmount) <= 0 || adjustReason.length < 10 || adjusting}
-                  className={`px-4 py-2 text-sm rounded-xl text-white disabled:opacity-50 ${
-                    adjustDirection === 'add'
-                      ? 'bg-green-600 hover:bg-green-700'
-                      : 'bg-red-600 hover:bg-red-700'
-                  }`}
-                >
-                  {adjusting ? 'Processing...' : adjustDirection === 'add' ? 'Add Balance' : 'Remove Balance'}
-                </button>
-              </div>
             </div>
           </div>
         </div>

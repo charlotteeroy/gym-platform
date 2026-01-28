@@ -5,6 +5,7 @@ export const productTypeSchema = z.enum([
   'CLASS_PACK',
   'MERCHANDISE',
   'DROP_IN',
+  'COMBO',
   'OTHER',
 ]);
 
@@ -19,8 +20,8 @@ export const createPassProductSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100).trim(),
   description: z.string().max(500).nullable().optional(),
   priceAmount: z.coerce.number().min(0, 'Price must be positive'),
-  type: z.enum(['CLASS_PACK', 'DROP_IN']),
-  classCredits: z.coerce.number().int().min(1, 'Credits must be at least 1'),
+  type: z.enum(['CLASS_PACK', 'DROP_IN', 'COMBO']),
+  bonusCount: z.coerce.number().int().min(1, 'Bonuses must be at least 1'),
   validityDays: z.coerce.number().int().min(1).nullable().optional(),
   isActive: z.boolean().default(true),
 });

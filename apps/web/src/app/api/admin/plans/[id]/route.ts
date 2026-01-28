@@ -9,7 +9,7 @@ const updatePlanSchema = z.object({
   priceAmount: z.number().min(0).optional(),
   priceCurrency: z.string().length(3).optional(),
   billingInterval: z.enum(['WEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY']).optional(),
-  classCredits: z.number().optional(),
+  bonusCount: z.number().optional(),
   guestPasses: z.number().optional(),
   features: z.array(z.string()).optional(),
   isActive: z.boolean().optional(),

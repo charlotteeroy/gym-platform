@@ -15,7 +15,7 @@ export const createMembershipPlanSchema = z.object({
   priceAmount: z.coerce.number().min(0, 'Price must be positive'),
   priceCurrency: z.string().length(3).default('USD'),
   billingInterval: billingIntervalSchema,
-  classCredits: z.coerce.number().int().min(-1).default(-1), // -1 = unlimited
+  bonusCount: z.coerce.number().int().min(-1).default(-1), // -1 = unlimited
   guestPasses: z.coerce.number().int().min(0).default(0),
   features: z.array(z.string()).default([]),
   isActive: z.boolean().default(true),

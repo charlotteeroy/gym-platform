@@ -19,7 +19,7 @@ export async function GET() {
     const products = await prisma.product.findMany({
       where: {
         gymId: staff.gymId,
-        type: { in: ['CLASS_PACK', 'DROP_IN'] },
+        type: { in: ['CLASS_PACK', 'DROP_IN', 'COMBO'] },
       },
       include: {
         _count: {
@@ -64,7 +64,7 @@ export async function POST(request: Request) {
       return apiValidationError(errors);
     }
 
-    const { name, description, priceAmount, type, classCredits, validityDays, isActive } = parsed.data;
+    const { name, description, priceAmount, type, bonusCount, validityDays, isActive } = parsed.data;
 
     const product = await prisma.product.create({
       data: {
@@ -72,7 +72,7 @@ export async function POST(request: Request) {
         description,
         priceAmount,
         type,
-        classCredits,
+        bonusCount,
         validityDays: validityDays ?? null,
         isActive,
         gymId: staff.gymId,

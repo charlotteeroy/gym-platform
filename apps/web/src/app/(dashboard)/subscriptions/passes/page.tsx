@@ -14,6 +14,9 @@ import {
   ChevronRight,
   Calendar,
   AlertTriangle,
+  Search,
+  UserPlus,
+  Check,
 } from 'lucide-react';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
@@ -32,8 +35,8 @@ import { Badge } from '@/components/ui/badge';
 interface MemberPass {
   id: string;
   status: string;
-  creditsTotal: number;
-  creditsRemaining: number;
+  bonusTotal: number;
+  bonusRemaining: number;
   expiresAt: string | null;
   createdAt: string;
   member: {
@@ -46,7 +49,7 @@ interface MemberPass {
     name: string;
     type: string;
     priceAmount: number;
-    classCredits: number | null;
+    bonusCount: number | null;
   };
 }
 
@@ -54,7 +57,7 @@ interface MemberPassStats {
   active: number;
   depleted: number;
   expired: number;
-  totalCreditsInUse: number;
+  totalBonusInUse: number;
 }
 
 interface PassProduct {
@@ -62,13 +65,20 @@ interface PassProduct {
   name: string;
   description: string | null;
   priceAmount: number;
-  type: 'CLASS_PACK' | 'DROP_IN';
-  classCredits: number | null;
+  type: 'CLASS_PACK' | 'DROP_IN' | 'COMBO';
+  bonusCount: number | null;
   validityDays: number | null;
   isActive: boolean;
   _count: {
     passes: number;
   };
+}
+
+interface Member {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
 }
 
 function PassStatusBadge({ status }: { status: string }) {
@@ -120,12 +130,22 @@ export default function PassesPage() {
     name: '',
     description: '',
     priceAmount: '',
-    type: 'CLASS_PACK' as 'CLASS_PACK' | 'DROP_IN',
-    classCredits: '10',
+    type: 'CLASS_PACK' as 'CLASS_PACK' | 'DROP_IN' | 'COMBO',
+    bonusCount: '10',
     validityDays: '90',
     noExpiry: false,
     isActive: true,
   });
+
+  // Assign pass modal state
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [assignSelectedProduct, setAssignSelectedProduct] = useState<string>('');
+  const [assignSelectedMember, setAssignSelectedMember] = useState<Member | null>(null);
+  const [assignNotes, setAssignNotes] = useState('');
+  const [memberSearchQuery, setMemberSearchQuery] = useState('');
+  const [memberSearchResults, setMemberSearchResults] = useState<Member[]>([]);
+  const [isSearchingMembers, setIsSearchingMembers] = useState(false);
+  const [isAssigning, setIsAssigning] = useState(false);
 
   useEffect(() => {
     fetchPassProducts();
@@ -169,7 +189,7 @@ export default function PassesPage() {
       description: '',
       priceAmount: '',
       type: 'CLASS_PACK',
-      classCredits: '10',
+      bonusCount: '10',
       validityDays: '90',
       noExpiry: false,
       isActive: true,
@@ -184,7 +204,7 @@ export default function PassesPage() {
       description: pass.description || '',
       priceAmount: Number(pass.priceAmount).toString(),
       type: pass.type,
-      classCredits: (pass.classCredits ?? 1).toString(),
+      bonusCount: (pass.bonusCount ?? 1).toString(),
       validityDays: pass.validityDays ? pass.validityDays.toString() : '90',
       noExpiry: pass.validityDays === null,
       isActive: pass.isActive,
@@ -207,7 +227,7 @@ export default function PassesPage() {
         name: passFormData.name,
         priceAmount: parseFloat(passFormData.priceAmount),
         type: passFormData.type,
-        classCredits: parseInt(passFormData.classCredits),
+        bonusCount: parseInt(passFormData.bonusCount),
         validityDays: passFormData.noExpiry ? null : parseInt(passFormData.validityDays),
         isActive: passFormData.isActive,
       };
@@ -265,6 +285,79 @@ export default function PassesPage() {
       }
     } catch {
       setError('Failed to update pass product');
+    }
+  };
+
+  // Search members for assign modal
+  const searchMembers = async (query: string) => {
+    if (!query.trim()) {
+      setMemberSearchResults([]);
+      return;
+    }
+    setIsSearchingMembers(true);
+    try {
+      const response = await fetch(`/api/members?search=${encodeURIComponent(query)}&limit=10`);
+      const data = await response.json();
+      if (data.success) {
+        setMemberSearchResults(data.data.items || []);
+      }
+    } catch {
+      // Ignore search errors
+    } finally {
+      setIsSearchingMembers(false);
+    }
+  };
+
+  // Debounced member search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (memberSearchQuery) {
+        searchMembers(memberSearchQuery);
+      } else {
+        setMemberSearchResults([]);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [memberSearchQuery]);
+
+  const openAssignModal = () => {
+    setAssignSelectedProduct(passProducts.find(p => p.isActive)?.id || '');
+    setAssignSelectedMember(null);
+    setAssignNotes('');
+    setMemberSearchQuery('');
+    setMemberSearchResults([]);
+    setShowAssignModal(true);
+  };
+
+  const handleAssignPass = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!assignSelectedProduct || !assignSelectedMember) return;
+
+    setIsAssigning(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/members/${assignSelectedMember.id}/passes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productId: assignSelectedProduct,
+          notes: assignNotes || undefined,
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setShowAssignModal(false);
+        fetchMemberPasses();
+        fetchPassProducts();
+      } else {
+        setError(data.error?.message || 'Failed to assign pass');
+      }
+    } catch {
+      setError('Failed to assign pass');
+    } finally {
+      setIsAssigning(false);
     }
   };
 
@@ -338,8 +431,17 @@ export default function PassesPage() {
           </div>
         </div>
 
-        {/* Add Pass Button */}
-        <div className="flex justify-end">
+        {/* Action Buttons */}
+        <div className="flex justify-end gap-3">
+          <Button
+            onClick={openAssignModal}
+            variant="outline"
+            className="rounded-xl"
+            disabled={activeProducts.length === 0}
+          >
+            <UserPlus className="mr-2 h-4 w-4" />
+            Assign Pass
+          </Button>
           <Button onClick={openAddPassModal} className="bg-slate-900 hover:bg-slate-800 rounded-xl">
             <Plus className="mr-2 h-4 w-4" />
             Add Pass
@@ -377,10 +479,12 @@ export default function PassesPage() {
                           className={`inline-flex items-center rounded px-2 py-0.5 text-xs ${
                             pass.type === 'DROP_IN'
                               ? 'bg-amber-100 text-amber-700'
+                              : pass.type === 'COMBO'
+                              ? 'bg-purple-100 text-purple-700'
                               : 'bg-indigo-100 text-indigo-700'
                           }`}
                         >
-                          {pass.type === 'DROP_IN' ? 'Drop-In' : 'Class Pack'}
+                          {pass.type === 'DROP_IN' ? 'Open Gym' : pass.type === 'COMBO' ? 'Both' : 'Classes'}
                         </span>
                         {!pass.isActive && (
                           <span className="inline-flex items-center rounded px-2 py-0.5 text-xs bg-slate-100 text-slate-500">
@@ -427,8 +531,8 @@ export default function PassesPage() {
                     <div className="flex items-center gap-2">
                       <Ticket className="w-4 h-4 text-indigo-500" />
                       <span>
-                        {pass.classCredits ?? 1}{' '}
-                        {(pass.classCredits ?? 1) === 1 ? 'credit' : 'credits'}
+                        {pass.bonusCount ?? 1}{' '}
+                        {(pass.bonusCount ?? 1) === 1 ? 'bonus' : 'bonuses'}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
@@ -455,135 +559,142 @@ export default function PassesPage() {
           </div>
         )}
         {/* All Member Passes */}
-        {memberPasses.length > 0 && (
-          <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-            <div className="p-5 border-b border-slate-100">
-              <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
-                <Calendar className="w-5 h-5" />
-                All Member Passes
-              </h2>
-              <p className="text-sm text-slate-500 mt-1">
-                {memberPasses.length} total &middot;{' '}
-                {memberPassStats?.active ?? 0} active
-                {(memberPassStats?.depleted ?? 0) > 0 && (
-                  <span> &middot; {memberPassStats?.depleted} depleted</span>
-                )}
-                {(memberPassStats?.expired ?? 0) > 0 && (
-                  <span className="text-amber-600">
-                    {' '}&middot; {memberPassStats?.expired} expired
-                  </span>
-                )}
-              </p>
-            </div>
-
-            {/* Mobile Card View */}
-            <div className="md:hidden divide-y divide-slate-100">
-              {memberPasses.map((mp) => {
-                const isExpiringSoon = mp.expiresAt &&
-                  new Date(mp.expiresAt).getTime() - Date.now() < 7 * 24 * 60 * 60 * 1000 &&
-                  mp.status === 'ACTIVE';
-                return (
-                  <Link
-                    key={mp.id}
-                    href={`/members/${mp.member.id}`}
-                    className="flex items-center gap-3 p-4 hover:bg-slate-50 transition-colors"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <p className="font-medium text-sm truncate">
-                          {mp.member.firstName} {mp.member.lastName}
-                        </p>
-                        <PassStatusBadge status={mp.status} />
-                      </div>
-                      <div className="flex items-center gap-2 text-xs text-slate-500 flex-wrap">
-                        <Badge variant="outline" className="text-[10px]">{mp.product.name}</Badge>
-                        <span>
-                          {mp.creditsRemaining}/{mp.creditsTotal} credits
-                        </span>
-                        {isExpiringSoon && (
-                          <span className="text-amber-600 flex items-center gap-0.5">
-                            <AlertTriangle className="w-3 h-3" /> Expiring soon
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <ChevronRight className="h-4 w-4 text-slate-400 flex-shrink-0" />
-                  </Link>
-                );
-              })}
-            </div>
-
-            {/* Desktop Table View */}
-            <div className="hidden md:block px-5 pb-5">
-              <table className="w-full text-sm">
-                <thead className="text-left text-slate-500 border-b">
-                  <tr>
-                    <th className="pb-3 font-medium">Member</th>
-                    <th className="pb-3 font-medium">Pass</th>
-                    <th className="pb-3 font-medium">Status</th>
-                    <th className="pb-3 font-medium">Credits</th>
-                    <th className="pb-3 font-medium">Expires</th>
-                    <th className="pb-3 font-medium w-10"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {memberPasses.map((mp) => {
-                    const pct = mp.creditsTotal > 0
-                      ? Math.round((mp.creditsRemaining / mp.creditsTotal) * 100)
-                      : 0;
-                    return (
-                      <tr key={mp.id} className="hover:bg-slate-50">
-                        <td className="py-3">
-                          <div className="font-medium">
-                            {mp.member.firstName} {mp.member.lastName}
-                          </div>
-                          <div className="text-xs text-slate-500">{mp.member.email}</div>
-                        </td>
-                        <td className="py-3">
-                          <Badge variant="outline">{mp.product.name}</Badge>
-                        </td>
-                        <td className="py-3">
-                          <PassStatusBadge status={mp.status} />
-                        </td>
-                        <td className="py-3">
-                          <div className="flex items-center gap-2">
-                            <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                              <div
-                                className={`h-full rounded-full ${
-                                  pct > 50 ? 'bg-indigo-500' : pct > 20 ? 'bg-amber-500' : 'bg-red-500'
-                                }`}
-                                style={{ width: `${pct}%` }}
-                              />
-                            </div>
-                            <span className="text-xs font-medium text-slate-600 whitespace-nowrap">
-                              {mp.creditsRemaining}/{mp.creditsTotal}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="py-3 text-slate-500">
-                          {mp.expiresAt
-                            ? new Date(mp.expiresAt).toLocaleDateString('en-US', {
-                                month: 'short',
-                                day: 'numeric',
-                                year: 'numeric',
-                              })
-                            : 'No expiry'}
-                        </td>
-                        <td className="py-3">
-                          <Link href={`/members/${mp.member.id}`}>
-                            <Button variant="ghost" size="icon">
-                              <ChevronRight className="h-4 w-4" />
-                            </Button>
-                          </Link>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+          <div className="p-5 border-b border-slate-100">
+            <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+              <Calendar className="w-5 h-5" />
+              Members with Passes
+            </h2>
+            <p className="text-sm text-slate-500 mt-1">
+              {memberPasses.length} total &middot;{' '}
+              {memberPassStats?.active ?? 0} active
+              {(memberPassStats?.depleted ?? 0) > 0 && (
+                <span> &middot; {memberPassStats?.depleted} depleted</span>
+              )}
+              {(memberPassStats?.expired ?? 0) > 0 && (
+                <span className="text-amber-600">
+                  {' '}&middot; {memberPassStats?.expired} expired
+                </span>
+              )}
+            </p>
           </div>
-        )}
+
+          {memberPasses.length === 0 ? (
+            <div className="p-8 text-center">
+              <Users className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+              <p className="text-sm text-slate-500">No members have purchased passes yet.</p>
+            </div>
+          ) : (
+            <>
+              {/* Mobile Card View */}
+              <div className="md:hidden divide-y divide-slate-100">
+                {memberPasses.map((mp) => {
+                  const isExpiringSoon = mp.expiresAt &&
+                    new Date(mp.expiresAt).getTime() - Date.now() < 7 * 24 * 60 * 60 * 1000 &&
+                    mp.status === 'ACTIVE';
+                  return (
+                    <Link
+                      key={mp.id}
+                      href={`/members/${mp.member.id}`}
+                      className="flex items-center gap-3 p-4 hover:bg-slate-50 transition-colors"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <p className="font-medium text-sm truncate">
+                            {mp.member.firstName} {mp.member.lastName}
+                          </p>
+                          <PassStatusBadge status={mp.status} />
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-slate-500 flex-wrap">
+                          <Badge variant="outline" className="text-[10px]">{mp.product.name}</Badge>
+                          <span>
+                            {mp.bonusRemaining}/{mp.bonusTotal} bonuses
+                          </span>
+                          {isExpiringSoon && (
+                            <span className="text-amber-600 flex items-center gap-0.5">
+                              <AlertTriangle className="w-3 h-3" /> Expiring soon
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-slate-400 flex-shrink-0" />
+                    </Link>
+                  );
+                })}
+              </div>
+
+              {/* Desktop Table View */}
+              <div className="hidden md:block px-5 pb-5">
+                <table className="w-full text-sm">
+                  <thead className="text-left text-slate-500 border-b">
+                    <tr>
+                      <th className="pb-3 font-medium">Member</th>
+                      <th className="pb-3 font-medium">Pass</th>
+                      <th className="pb-3 font-medium">Status</th>
+                      <th className="pb-3 font-medium">Bonuses</th>
+                      <th className="pb-3 font-medium">Expires</th>
+                      <th className="pb-3 font-medium w-10"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {memberPasses.map((mp) => {
+                      const pct = mp.bonusTotal > 0
+                        ? Math.round((mp.bonusRemaining / mp.bonusTotal) * 100)
+                        : 0;
+                      return (
+                        <tr key={mp.id} className="hover:bg-slate-50">
+                          <td className="py-3">
+                            <div className="font-medium">
+                              {mp.member.firstName} {mp.member.lastName}
+                            </div>
+                            <div className="text-xs text-slate-500">{mp.member.email}</div>
+                          </td>
+                          <td className="py-3">
+                            <Badge variant="outline">{mp.product.name}</Badge>
+                          </td>
+                          <td className="py-3">
+                            <PassStatusBadge status={mp.status} />
+                          </td>
+                          <td className="py-3">
+                            <div className="flex items-center gap-2">
+                              <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full ${
+                                    pct > 50 ? 'bg-indigo-500' : pct > 20 ? 'bg-amber-500' : 'bg-red-500'
+                                  }`}
+                                  style={{ width: `${pct}%` }}
+                                />
+                              </div>
+                              <span className="text-xs font-medium text-slate-600 whitespace-nowrap">
+                                {mp.bonusRemaining}/{mp.bonusTotal}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="py-3 text-slate-500">
+                            {mp.expiresAt
+                              ? new Date(mp.expiresAt).toLocaleDateString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  year: 'numeric',
+                                })
+                              : 'No expiry'}
+                          </td>
+                          <td className="py-3">
+                            <Link href={`/members/${mp.member.id}`}>
+                              <Button variant="ghost" size="icon">
+                                <ChevronRight className="h-4 w-4" />
+                              </Button>
+                            </Link>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Pass Add/Edit Modal */}
@@ -657,31 +768,32 @@ export default function PassesPage() {
                     id="passType"
                     value={passFormData.type}
                     onChange={(e) => {
-                      const type = e.target.value as 'CLASS_PACK' | 'DROP_IN';
+                      const type = e.target.value as 'CLASS_PACK' | 'DROP_IN' | 'COMBO';
                       setPassFormData({
                         ...passFormData,
                         type,
-                        classCredits: type === 'DROP_IN' ? '1' : passFormData.classCredits,
+                        bonusCount: type === 'DROP_IN' ? '1' : passFormData.bonusCount,
                       });
                     }}
                     className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
                   >
-                    <option value="CLASS_PACK">Class Pack</option>
-                    <option value="DROP_IN">Drop-In</option>
+                    <option value="DROP_IN">Open Gym</option>
+                    <option value="CLASS_PACK">Classes</option>
+                    <option value="COMBO">Both (Classes & Open Gym)</option>
                   </select>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="passCredits">Credits</Label>
+                  <Label htmlFor="bonusCount">Bonuses</Label>
                   <Input
-                    id="passCredits"
+                    id="bonusCount"
                     type="number"
                     min="1"
-                    value={passFormData.classCredits}
+                    value={passFormData.bonusCount}
                     onChange={(e) =>
-                      setPassFormData({ ...passFormData, classCredits: e.target.value })
+                      setPassFormData({ ...passFormData, bonusCount: e.target.value })
                     }
                     className="rounded-xl"
                     disabled={passFormData.type === 'DROP_IN'}
@@ -755,6 +867,170 @@ export default function PassesPage() {
                     'Save Changes'
                   ) : (
                     'Create Pass'
+                  )}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Assign Pass Modal */}
+      {showAssignModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setShowAssignModal(false)} />
+          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-5 border-b border-slate-100">
+              <h2 className="text-lg font-semibold text-slate-900">Assign Pass to Member</h2>
+              <button
+                onClick={() => setShowAssignModal(false)}
+                className="p-2 hover:bg-slate-100 rounded-lg"
+              >
+                <X className="w-5 h-5 text-slate-500" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAssignPass} className="p-5 space-y-4">
+              {/* Select Pass Product */}
+              <div className="space-y-2">
+                <Label htmlFor="assignProduct">Pass Product</Label>
+                <select
+                  id="assignProduct"
+                  value={assignSelectedProduct}
+                  onChange={(e) => setAssignSelectedProduct(e.target.value)}
+                  className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+                  required
+                >
+                  <option value="">Select a pass...</option>
+                  {passProducts.filter(p => p.isActive).map((product) => (
+                    <option key={product.id} value={product.id}>
+                      {product.name} - ${Number(product.priceAmount).toFixed(2)} ({product.bonusCount ?? 1} {(product.bonusCount ?? 1) === 1 ? 'bonus' : 'bonuses'})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Search and Select Member */}
+              <div className="space-y-2">
+                <Label>Member</Label>
+                {assignSelectedMember ? (
+                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                    <div>
+                      <p className="font-medium text-slate-900">
+                        {assignSelectedMember.firstName} {assignSelectedMember.lastName}
+                      </p>
+                      <p className="text-sm text-slate-500">{assignSelectedMember.email}</p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setAssignSelectedMember(null);
+                        setMemberSearchQuery('');
+                      }}
+                      className="text-slate-500 hover:text-slate-700"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <Input
+                        placeholder="Search members by name or email..."
+                        value={memberSearchQuery}
+                        onChange={(e) => setMemberSearchQuery(e.target.value)}
+                        className="rounded-xl pl-10"
+                      />
+                      {isSearchingMembers && (
+                        <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 animate-spin" />
+                      )}
+                    </div>
+                    {memberSearchResults.length > 0 && (
+                      <div className="border border-slate-200 rounded-xl max-h-48 overflow-y-auto">
+                        {memberSearchResults.map((member) => (
+                          <button
+                            key={member.id}
+                            type="button"
+                            onClick={() => {
+                              setAssignSelectedMember(member);
+                              setMemberSearchQuery('');
+                              setMemberSearchResults([]);
+                            }}
+                            className="w-full flex items-center gap-3 p-3 hover:bg-slate-50 text-left border-b border-slate-100 last:border-b-0"
+                          >
+                            <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 text-sm font-medium">
+                              {member.firstName[0]}{member.lastName[0]}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-slate-900 truncate">
+                                {member.firstName} {member.lastName}
+                              </p>
+                              <p className="text-xs text-slate-500 truncate">{member.email}</p>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {memberSearchQuery && !isSearchingMembers && memberSearchResults.length === 0 && (
+                      <p className="text-sm text-slate-500 text-center py-3">No members found</p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Notes */}
+              <div className="space-y-2">
+                <Label htmlFor="assignNotes">Notes (optional)</Label>
+                <Textarea
+                  id="assignNotes"
+                  value={assignNotes}
+                  onChange={(e) => setAssignNotes(e.target.value)}
+                  placeholder="Add any notes about this pass assignment..."
+                  rows={2}
+                  className="rounded-xl resize-none"
+                />
+              </div>
+
+              {/* Summary */}
+              {assignSelectedProduct && assignSelectedMember && (
+                <div className="p-4 bg-indigo-50 rounded-xl">
+                  <div className="flex items-center gap-2 text-indigo-700">
+                    <Check className="w-5 h-5" />
+                    <span className="font-medium">Ready to assign</span>
+                  </div>
+                  <p className="text-sm text-indigo-600 mt-1">
+                    {passProducts.find(p => p.id === assignSelectedProduct)?.name} will be assigned to {assignSelectedMember.firstName} {assignSelectedMember.lastName}
+                  </p>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowAssignModal(false)}
+                  className="rounded-xl"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isAssigning || !assignSelectedProduct || !assignSelectedMember}
+                  className="bg-slate-900 hover:bg-slate-800 rounded-xl"
+                >
+                  {isAssigning ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Assigning...
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="mr-2 h-4 w-4" />
+                      Assign Pass
+                    </>
                   )}
                 </Button>
               </div>

@@ -19,7 +19,7 @@ export const createClassSchema = z.object({
   bookingOpensHours: z.coerce.number().int().min(1).default(168), // 7 days
   bookingClosesMinutes: z.coerce.number().int().min(0).default(30),
   cancellationMinutes: z.coerce.number().int().min(0).default(120),
-  creditsRequired: z.coerce.number().int().min(0).default(1),
+  bonusRequired: z.coerce.number().int().min(0).default(1),
   instructorId: z.string().cuid('Invalid instructor ID').optional(),
   isActive: z.boolean().default(true),
 });

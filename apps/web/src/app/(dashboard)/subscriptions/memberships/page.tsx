@@ -40,7 +40,7 @@ interface MembershipPlan {
   priceAmount: number;
   priceCurrency: string;
   billingInterval: 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'YEARLY';
-  classCredits: number;
+  bonusCount: number;
   guestPasses: number;
   features: string[];
   isActive: boolean;
@@ -176,7 +176,7 @@ export default function MembershipsPage() {
     priceAmount: '',
     priceCurrency: 'USD',
     billingInterval: 'MONTHLY' as MembershipPlan['billingInterval'],
-    classCredits: '-1',
+    bonusCount: '-1',
     guestPasses: '0',
     features: [] as string[],
     isActive: true,
@@ -225,7 +225,7 @@ export default function MembershipsPage() {
       priceAmount: '',
       priceCurrency: 'USD',
       billingInterval: 'MONTHLY',
-      classCredits: '-1',
+      bonusCount: '-1',
       guestPasses: '0',
       features: [],
       isActive: true,
@@ -242,7 +242,7 @@ export default function MembershipsPage() {
       priceAmount: plan.priceAmount.toString(),
       priceCurrency: plan.priceCurrency,
       billingInterval: plan.billingInterval,
-      classCredits: plan.classCredits.toString(),
+      bonusCount: plan.bonusCount.toString(),
       guestPasses: plan.guestPasses.toString(),
       features: plan.features || [],
       isActive: plan.isActive,
@@ -271,7 +271,7 @@ export default function MembershipsPage() {
           priceAmount: parseFloat(formData.priceAmount),
           priceCurrency: formData.priceCurrency,
           billingInterval: formData.billingInterval,
-          classCredits: parseInt(formData.classCredits),
+          bonusCount: parseInt(formData.bonusCount),
           guestPasses: parseInt(formData.guestPasses),
           features: formData.features,
           isActive: formData.isActive,
@@ -509,7 +509,7 @@ export default function MembershipsPage() {
 
                     <div className="space-y-2 text-sm">
                       <div className="flex items-center gap-2">
-                        {plan.classCredits === -1 ? (
+                        {plan.bonusCount === -1 ? (
                           <>
                             <InfinityIcon className="w-4 h-4 text-emerald-500" />
                             <span>Unlimited classes</span>
@@ -517,7 +517,7 @@ export default function MembershipsPage() {
                         ) : (
                           <>
                             <Check className="w-4 h-4 text-emerald-500" />
-                            <span>{plan.classCredits} classes/month</span>
+                            <span>{plan.bonusCount} classes/month</span>
                           </>
                         )}
                       </div>
@@ -736,12 +736,12 @@ export default function MembershipsPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="classCredits">Class Credits</Label>
+                  <Label htmlFor="bonusCount">Bonus Classes</Label>
                   <Input
-                    id="classCredits"
+                    id="bonusCount"
                     type="number"
-                    value={formData.classCredits}
-                    onChange={(e) => setFormData({ ...formData, classCredits: e.target.value })}
+                    value={formData.bonusCount}
+                    onChange={(e) => setFormData({ ...formData, bonusCount: e.target.value })}
                     className="rounded-xl"
                   />
                   <p className="text-xs text-slate-500">-1 for unlimited</p>

@@ -2,11 +2,11 @@ import { getSession } from '@/lib/auth';
 import { prisma } from '@gym/database';
 import { redirect } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar, Dumbbell, TrendingUp, Trophy, Target, Flame, History, Ticket, DollarSign } from 'lucide-react';
+import { Calendar, Dumbbell, TrendingUp, Trophy, Target, Flame, History, Ticket } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { getMemberPasses, getBonusBalance } from '@gym/core';
+import { getMemberPasses } from '@gym/core';
 
 function formatDateDisplay(date: Date, format: 'day' | 'time' | 'full'): string {
   const d = new Date(date);
@@ -108,14 +108,11 @@ async function getMemberData() {
     }
   }
 
-  // Get pass credits and bonus balance
-  const [passes, bonusBalanceAmount] = await Promise.all([
-    getMemberPasses(member.id),
-    getBonusBalance(member.id),
-  ]);
+  // Get passes
+  const passes = await getMemberPasses(member.id);
   const activePasses = passes.filter((p: { status: string }) => p.status === 'ACTIVE');
-  const totalPassCredits = activePasses.reduce(
-    (sum: number, p: { creditsRemaining: number }) => sum + p.creditsRemaining,
+  const totalBonuses = activePasses.reduce(
+    (sum: number, p: { bonusRemaining: number }) => sum + p.bonusRemaining,
     0
   );
 
@@ -128,8 +125,7 @@ async function getMemberData() {
     streak,
     totalClassesAttended: pastClasses.length,
     activePasses,
-    totalPassCredits,
-    bonusBalance: bonusBalanceAmount,
+    totalBonuses,
   };
 }
 
@@ -148,8 +144,7 @@ export default async function PortalHomePage() {
     classesThisWeek,
     streak,
     activePasses,
-    totalPassCredits,
-    bonusBalance,
+    totalBonuses,
   } = data;
 
   const subscription = member.subscription;
@@ -249,14 +244,14 @@ export default async function PortalHomePage() {
           </CardContent>
         </Card>
 
-        {totalPassCredits > 0 ? (
+        {totalBonuses > 0 ? (
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Pass Credits</CardTitle>
+              <CardTitle className="text-sm font-medium">Bonuses</CardTitle>
               <Ticket className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{totalPassCredits}</div>
+              <div className="text-2xl font-bold">{totalBonuses}</div>
               <p className="text-xs text-muted-foreground">
                 Across {activePasses.length} {activePasses.length === 1 ? 'pass' : 'passes'}
               </p>
@@ -265,32 +260,18 @@ export default async function PortalHomePage() {
         ) : (
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Class Credits</CardTitle>
+              <CardTitle className="text-sm font-medium">Bonuses</CardTitle>
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {subscription?.plan?.classCredits === -1
+                {subscription?.plan?.bonusCount === -1
                   ? '∞'
-                  : subscription?.plan?.classCredits || 0}
+                  : subscription?.plan?.bonusCount || 0}
               </div>
               <p className="text-xs text-muted-foreground">
-                {subscription?.plan?.classCredits === -1 ? 'Unlimited' : 'Available'}
+                {subscription?.plan?.bonusCount === -1 ? 'Unlimited' : 'Available'}
               </p>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Bonus Balance */}
-        {bonusBalance > 0 && (
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Bonus Balance</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">${bonusBalance.toFixed(2)}</div>
-              <p className="text-xs text-muted-foreground">Use toward any purchase</p>
             </CardContent>
           </Card>
         )}

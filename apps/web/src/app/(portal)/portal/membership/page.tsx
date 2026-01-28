@@ -144,19 +144,19 @@ export default async function MembershipPage() {
               </div>
             </div>
 
-            {/* Class Credits */}
+            {/* Bonuses */}
             <div className="p-4 border rounded-lg">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="font-medium">Class Credits</p>
+                  <p className="font-medium">Bonuses</p>
                   <p className="text-sm text-muted-foreground">
-                    {plan.classCredits === -1
+                    {plan.bonusCount === -1
                       ? 'Book unlimited classes'
-                      : `${plan.classCredits} classes per month`}
+                      : `${plan.bonusCount} bonuses per month`}
                   </p>
                 </div>
                 <div className="text-3xl font-bold text-primary">
-                  {plan.classCredits === -1 ? '∞' : plan.classCredits}
+                  {plan.bonusCount === -1 ? '∞' : plan.bonusCount}
                 </div>
               </div>
             </div>
@@ -189,18 +189,18 @@ export default async function MembershipPage() {
               <Ticket className="h-5 w-5" />
               Your Passes
             </CardTitle>
-            <CardDescription>Class packs and drop-in credits</CardDescription>
+            <CardDescription>Class packs and drop-in bonuses</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {activePasses.map((pass: {
               id: string;
-              creditsRemaining: number;
-              creditsTotal: number;
+              bonusRemaining: number;
+              bonusTotal: number;
               expiresAt: Date | null;
               product: { name: string; type: string };
             }) => {
-              const pct = pass.creditsTotal > 0
-                ? Math.round((pass.creditsRemaining / pass.creditsTotal) * 100)
+              const pct = pass.bonusTotal > 0
+                ? Math.round((pass.bonusRemaining / pass.bonusTotal) * 100)
                 : 0;
               return (
                 <div key={pass.id} className="p-4 border rounded-lg">
@@ -212,8 +212,8 @@ export default async function MembershipPage() {
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-3xl font-bold text-primary">{pass.creditsRemaining}</p>
-                      <p className="text-xs text-muted-foreground">of {pass.creditsTotal} credits</p>
+                      <p className="text-3xl font-bold text-primary">{pass.bonusRemaining}</p>
+                      <p className="text-xs text-muted-foreground">of {pass.bonusTotal} bonuses</p>
                     </div>
                   </div>
                   {/* Progress bar */}

@@ -9,7 +9,7 @@ const createPlanSchema = z.object({
   priceAmount: z.number().min(0),
   priceCurrency: z.string().length(3).optional().default('USD'),
   billingInterval: z.enum(['WEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY']),
-  classCredits: z.number().optional().default(-1), // -1 = unlimited
+  bonusCount: z.number().optional().default(-1), // -1 = unlimited
   guestPasses: z.number().optional().default(0),
   features: z.array(z.string()).optional().default([]),
   isActive: z.boolean().optional().default(true),

@@ -162,7 +162,7 @@ async function main() {
       description: 'Access to gym floor and basic equipment',
       priceAmount: 29.99,
       billingInterval: BillingInterval.MONTHLY,
-      classCredits: 4,
+      bonusCount: 4,
       features: ['Gym floor access', 'Locker room access', '4 classes per month'],
       gymId: gym.id,
     },
@@ -174,7 +174,7 @@ async function main() {
       description: 'Unlimited access to all facilities and classes',
       priceAmount: 79.99,
       billingInterval: BillingInterval.MONTHLY,
-      classCredits: -1,
+      bonusCount: -1,
       guestPasses: 2,
       features: [
         'Unlimited gym access',
@@ -193,7 +193,7 @@ async function main() {
       description: 'Best value - all premium benefits with 2 months free',
       priceAmount: 799.99,
       billingInterval: BillingInterval.YEARLY,
-      classCredits: -1,
+      bonusCount: -1,
       guestPasses: 4,
       features: [
         'Everything in Premium',
@@ -646,10 +646,10 @@ async function main() {
   const tenClassPack = await prisma.product.create({
     data: {
       name: '10-Class Pack',
-      description: 'Bundle of 10 class credits. Use at your own pace.',
+      description: 'Bundle of 10 bonuses. Use at your own pace.',
       priceAmount: 120.00,
       type: ProductType.CLASS_PACK,
-      classCredits: 10,
+      bonusCount: 10,
       validityDays: 90,
       isActive: true,
       gymId: gym.id,
@@ -659,10 +659,10 @@ async function main() {
   const fiveClassPack = await prisma.product.create({
     data: {
       name: '5-Class Pack',
-      description: 'Starter pack with 5 class credits.',
+      description: 'Starter pack with 5 bonuses.',
       priceAmount: 70.00,
       type: ProductType.CLASS_PACK,
-      classCredits: 5,
+      bonusCount: 5,
       validityDays: 60,
       isActive: true,
       gymId: gym.id,
@@ -675,7 +675,7 @@ async function main() {
       description: 'Single visit — no commitment.',
       priceAmount: 18.00,
       type: ProductType.DROP_IN,
-      classCredits: 1,
+      bonusCount: 1,
       validityDays: null,
       isActive: true,
       gymId: gym.id,
@@ -689,8 +689,8 @@ async function main() {
   const sofiaPass = await prisma.memberPass.create({
     data: {
       status: MemberPassStatus.ACTIVE,
-      creditsTotal: 10,
-      creditsRemaining: 6,
+      bonusTotal: 10,
+      bonusRemaining: 6,
       activatedAt: randomDate(30),
       expiresAt: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000), // 60 days from now
       memberId: members[3].id,
@@ -703,8 +703,8 @@ async function main() {
   const noahPass = await prisma.memberPass.create({
     data: {
       status: MemberPassStatus.ACTIVE,
-      creditsTotal: 5,
-      creditsRemaining: 1,
+      bonusTotal: 5,
+      bonusRemaining: 1,
       activatedAt: randomDate(45),
       expiresAt: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000), // 15 days from now (expiring soon)
       memberId: members[6].id,
@@ -717,8 +717,8 @@ async function main() {
   await prisma.memberPass.create({
     data: {
       status: MemberPassStatus.DEPLETED,
-      creditsTotal: 1,
-      creditsRemaining: 0,
+      bonusTotal: 1,
+      bonusRemaining: 0,
       activatedAt: randomDate(10),
       memberId: members[7].id,
       productId: dropInPass.id,
@@ -730,8 +730,8 @@ async function main() {
   await prisma.memberPass.create({
     data: {
       status: MemberPassStatus.ACTIVE,
-      creditsTotal: 10,
-      creditsRemaining: 8,
+      bonusTotal: 10,
+      bonusRemaining: 8,
       activatedAt: randomDate(5),
       expiresAt: new Date(Date.now() + 85 * 24 * 60 * 60 * 1000), // 85 days from now
       memberId: members[17].id,
@@ -751,7 +751,7 @@ async function main() {
       checkedOutAt: randomDate(4),
       method: CheckInMethod.QR_CODE,
       memberPassId: sofiaPass.id,
-      creditsUsed: 1,
+      bonusUsed: 1,
     },
   });
 
@@ -762,8 +762,8 @@ async function main() {
       checkedInAt: randomDate(3),
       method: CheckInMethod.MANUAL,
       memberPassId: noahPass.id,
-      creditsUsed: 1,
-      notes: 'Used pass credit for open gym visit',
+      bonusUsed: 1,
+      notes: 'Used pass bonus for open gym visit',
     },
   });
 

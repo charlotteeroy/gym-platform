@@ -163,10 +163,10 @@ export async function detectUpgradeOpportunities(gymId: string): Promise<Detecte
     }
 
     // Near plan limits
-    if (currentPlan.classCredits !== -1 && currentPlan.classCredits !== null) {
-      if (classBookings >= (currentPlan.classCredits * 0.8)) {
+    if (currentPlan.bonusCount !== -1 && currentPlan.bonusCount !== null) {
+      if (classBookings >= (currentPlan.bonusCount * 0.8)) {
         confidenceScore += 15;
-        reasons.push(`Using ${Math.round((classBookings / currentPlan.classCredits) * 100)}% of class credits`);
+        reasons.push(`Using ${Math.round((classBookings / currentPlan.bonusCount) * 100)}% of bonuses`);
       }
     }
 
@@ -541,13 +541,13 @@ export async function detectAddonOpportunities(gymId: string): Promise<DetectedO
           reasons.push(`Consistent ${topClassName} participant`);
         }
 
-        // Near credit limit
-        const planCredits = member.subscription?.plan.classCredits;
-        if (planCredits !== undefined && planCredits !== -1 && planCredits !== null) {
-          const creditsUsed = recentBookings.length;
-          if (creditsUsed >= planCredits * 0.9) {
+        // Near bonus limit
+        const planBonuses = member.subscription?.plan.bonusCount;
+        if (planBonuses !== undefined && planBonuses !== -1 && planBonuses !== null) {
+          const bonusUsed = recentBookings.length;
+          if (bonusUsed >= planBonuses * 0.9) {
             confidenceScore += 25;
-            reasons.push('Near class credit limit');
+            reasons.push('Near bonus limit');
           }
         }
 

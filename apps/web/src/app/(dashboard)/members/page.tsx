@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Search, MoreHorizontal, UserPlus, Loader2, Users, AlertTriangle, Clock, Sparkles, DollarSign, Ticket, Tag } from 'lucide-react';
+import { Plus, Search, MoreHorizontal, UserPlus, Loader2, Users, AlertTriangle, Clock, Sparkles, Ticket, Tag } from 'lucide-react';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
 import { ExportButton } from '@/components/ui/export-button';
@@ -30,8 +30,7 @@ interface Member {
   tags?: Array<{ tag: { id: string; name: string; color: string } }>;
   planName?: string | null;
   subscriptionStatus?: string | null;
-  totalPassCredits?: number;
-  bonusBalanceAmount?: number;
+  totalBonuses?: number;
 }
 
 interface Tag {
@@ -155,8 +154,7 @@ export default function MembersPage() {
     { header: 'Email', accessor: (m) => m.email },
     { header: 'Status', accessor: (m) => m.status },
     { header: 'Membership', accessor: (m) => m.planName || '—' },
-    { header: 'Pass Credits', accessor: (m) => m.totalPassCredits || 0 },
-    { header: 'Bonus Balance', accessor: (m) => m.bonusBalanceAmount ? `$${m.bonusBalanceAmount.toFixed(2)}` : '$0.00' },
+    { header: 'Bonuses', accessor: (m) => m.totalBonuses || 0 },
     { header: 'Visits (30 days)', accessor: (m) => m.visitCount || 0 },
     { header: 'Tags', accessor: (m) => (m.tags || []).map((t: any) => t.tag?.name || t.name).join(', ') },
     { header: 'Joined', accessor: (m) => formatDate(m.createdAt || m.joinedAt) },
@@ -533,14 +531,9 @@ export default function MembersPage() {
                             {member.planName}
                           </span>
                         )}
-                        {(member.totalPassCredits ?? 0) > 0 && (
+                        {(member.totalBonuses ?? 0) > 0 && (
                           <span className="text-[10px] font-medium text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">
-                            {member.totalPassCredits} credits
-                          </span>
-                        )}
-                        {(member.bonusBalanceAmount ?? 0) > 0 && (
-                          <span className="text-[10px] font-medium text-green-600 bg-green-50 px-1.5 py-0.5 rounded">
-                            ${member.bonusBalanceAmount?.toFixed(2)}
+                            {member.totalBonuses} bonuses
                           </span>
                         )}
                         {member.tags && member.tags.length > 0 && (
@@ -581,8 +574,7 @@ export default function MembersPage() {
                       <th className="px-5 py-3 font-medium">Member</th>
                       <th className="px-5 py-3 font-medium">Status</th>
                       <th className="px-5 py-3 font-medium">Membership</th>
-                      <th className="px-5 py-3 font-medium">Passes</th>
-                      <th className="px-5 py-3 font-medium">Bonus</th>
+                      <th className="px-5 py-3 font-medium">Bonuses</th>
                       <th className="px-5 py-3 font-medium">Activity</th>
                       <th className="px-5 py-3 font-medium">Tags</th>
                       <th className="px-5 py-3 font-medium w-10"></th>
@@ -617,20 +609,10 @@ export default function MembersPage() {
                           )}
                         </td>
                         <td className="px-5 py-4">
-                          {(member.totalPassCredits ?? 0) > 0 ? (
+                          {(member.totalBonuses ?? 0) > 0 ? (
                             <span className="inline-flex items-center gap-1 text-xs font-medium text-indigo-700 bg-indigo-50 px-2 py-1 rounded-md">
                               <Ticket className="w-3 h-3" />
-                              {member.totalPassCredits}
-                            </span>
-                          ) : (
-                            <span className="text-xs text-slate-400">—</span>
-                          )}
-                        </td>
-                        <td className="px-5 py-4">
-                          {(member.bonusBalanceAmount ?? 0) > 0 ? (
-                            <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 px-2 py-1 rounded-md">
-                              <DollarSign className="w-3 h-3" />
-                              {member.bonusBalanceAmount?.toFixed(2)}
+                              {member.totalBonuses}
                             </span>
                           ) : (
                             <span className="text-xs text-slate-400">—</span>

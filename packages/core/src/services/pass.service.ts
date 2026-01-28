@@ -1,7 +1,6 @@
 import { prisma } from '@gym/database';
 import type { MemberPassStatus } from '@gym/database';
 import type { PassBalance, MemberAccessSummary } from '@gym/shared';
-import { addBonusBalance, deductBonusBalance } from './bonus-balance.service';
 
 const ERROR_CODES = {
   NOT_FOUND: 'NOT_FOUND',
@@ -86,7 +85,7 @@ export async function activatePass(
     };
   }
 
-  const credits = product.classCredits ?? 1;
+  const bonuses = product.bonusCount ?? 1;
   const expiresAt = product.validityDays
     ? new Date(Date.now() + product.validityDays * 24 * 60 * 60 * 1000)
     : null;
@@ -97,8 +96,8 @@ export async function activatePass(
       productId,
       gymId,
       purchaseId: purchaseId || undefined,
-      creditsTotal: credits,
-      creditsRemaining: credits,
+      bonusTotal: bonuses,
+      bonusRemaining: bonuses,
       expiresAt,
       notes,
       status: 'ACTIVE',
@@ -108,25 +107,10 @@ export async function activatePass(
     },
   });
 
-  // Credit bonus balance equal to pass price
-  const priceAmount = Number(product.priceAmount);
-  if (priceAmount > 0) {
-    await addBonusBalance(
-      memberId,
-      gymId,
-      priceAmount,
-      'PASS_PURCHASE',
-      'pass',
-      memberPass.id,
-      `${product.name} purchased`,
-      'system'
-    );
-  }
-
   return { success: true, data: memberPass };
 }
 
-export async function deductCredit(
+export async function deductBonus(
   memberPassId: string,
   amount: number = 1
 ): Promise<PassResult> {
@@ -160,45 +144,24 @@ export async function deductCredit(
     };
   }
 
-  if (pass.creditsRemaining < amount) {
+  if (pass.bonusRemaining < amount) {
     return {
       success: false,
       error: {
         code: ERROR_CODES.PASS_DEPLETED,
-        message: `Insufficient credits: ${pass.creditsRemaining} remaining, ${amount} required`,
+        message: `Insufficient bonuses: ${pass.bonusRemaining} remaining, ${amount} required`,
       },
     };
   }
 
-  const newRemaining = pass.creditsRemaining - amount;
+  const newRemaining = pass.bonusRemaining - amount;
   const updated = await prisma.memberPass.update({
     where: { id: memberPassId },
     data: {
-      creditsRemaining: newRemaining,
+      bonusRemaining: newRemaining,
       status: newRemaining === 0 ? 'DEPLETED' : 'ACTIVE',
     },
   });
-
-  // Deduct per-class value from bonus balance
-  const classCredits = pass.product.classCredits ?? 1;
-  const priceAmount = Number(pass.product.priceAmount);
-  if (priceAmount > 0 && classCredits > 0) {
-    const perClassValue = priceAmount / classCredits;
-    await deductBonusBalance(
-      pass.memberId,
-      pass.gymId,
-      perClassValue * amount,
-      'CLASS_ATTENDED',
-      'pass',
-      pass.id,
-      `${pass.product.name} - class attended`,
-      'system'
-    ).catch((err) => {
-      // Don't fail the credit deduction if bonus balance deduction fails
-      // (e.g., insufficient balance from manual adjustments)
-      console.warn('Bonus balance deduction failed:', err);
-    });
-  }
 
   return { success: true, data: updated };
 }
@@ -218,7 +181,7 @@ export async function getActivePasses(memberId: string) {
     where: {
       memberId,
       status: 'ACTIVE',
-      creditsRemaining: { gt: 0 },
+      bonusRemaining: { gt: 0 },
       OR: [
         { expiresAt: null },
         { expiresAt: { gt: new Date() } },
@@ -252,29 +215,29 @@ export async function getMemberAccessSummary(
   const passBalances: PassBalance[] = activePasses.map((p) => ({
     passId: p.id,
     productName: p.product.name,
-    creditsRemaining: p.creditsRemaining,
-    creditsTotal: p.creditsTotal,
+    bonusRemaining: p.bonusRemaining,
+    bonusTotal: p.bonusTotal,
     expiresAt: p.expiresAt?.toISOString() ?? null,
     status: p.status as PassBalance['status'],
   }));
 
-  const totalCreditsAvailable = passBalances.reduce(
-    (sum, p) => sum + p.creditsRemaining,
+  const totalBonusAvailable = passBalances.reduce(
+    (sum, p) => sum + p.bonusRemaining,
     0
   );
 
   let accessType: MemberAccessSummary['accessType'] = 'none';
   if (hasActiveSubscription) {
     accessType = 'subscription';
-  } else if (totalCreditsAvailable > 0) {
+  } else if (totalBonusAvailable > 0) {
     accessType = 'pass';
   }
 
   return {
     hasActiveSubscription,
     activePasses: passBalances,
-    totalCreditsAvailable,
-    canCheckIn: hasActiveSubscription || totalCreditsAvailable > 0,
+    totalBonusAvailable,
+    canCheckIn: hasActiveSubscription || totalBonusAvailable > 0,
     accessType,
   };
 }
