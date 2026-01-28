@@ -18,6 +18,8 @@ import {
   XCircle,
   ChevronRight,
   Calendar,
+  Search,
+  UserPlus,
 } from 'lucide-react';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
@@ -75,6 +77,13 @@ interface SubscriptionStats {
   cancelledThisMonth: number;
   setToCancel: number;
   mrr: number;
+}
+
+interface Member {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
 }
 
 const BILLING_INTERVALS = [
@@ -181,6 +190,15 @@ export default function MembershipsPage() {
     features: [] as string[],
     isActive: true,
   });
+
+  // Assign membership modal state
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [assignSelectedPlan, setAssignSelectedPlan] = useState<string>('');
+  const [assignSelectedMember, setAssignSelectedMember] = useState<Member | null>(null);
+  const [memberSearchQuery, setMemberSearchQuery] = useState('');
+  const [memberSearchResults, setMemberSearchResults] = useState<Member[]>([]);
+  const [isSearchingMembers, setIsSearchingMembers] = useState(false);
+  const [isAssigning, setIsAssigning] = useState(false);
 
   useEffect(() => {
     fetchPlans();
@@ -344,6 +362,78 @@ export default function MembershipsPage() {
     });
   };
 
+  // Search members for assign modal
+  const searchMembers = async (query: string) => {
+    if (!query.trim()) {
+      setMemberSearchResults([]);
+      return;
+    }
+    setIsSearchingMembers(true);
+    try {
+      const response = await fetch(`/api/members?search=${encodeURIComponent(query)}&limit=10`);
+      const data = await response.json();
+      if (data.success) {
+        setMemberSearchResults(data.data.items || []);
+      }
+    } catch {
+      // Ignore search errors
+    } finally {
+      setIsSearchingMembers(false);
+    }
+  };
+
+  // Debounced member search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (memberSearchQuery) {
+        searchMembers(memberSearchQuery);
+      } else {
+        setMemberSearchResults([]);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [memberSearchQuery]);
+
+  const openAssignModal = () => {
+    setAssignSelectedPlan(plans.find(p => p.isActive)?.id || '');
+    setAssignSelectedMember(null);
+    setMemberSearchQuery('');
+    setMemberSearchResults([]);
+    setShowAssignModal(true);
+  };
+
+  const handleAssignMembership = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!assignSelectedPlan || !assignSelectedMember) return;
+
+    setIsAssigning(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/admin/subscriptions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          memberId: assignSelectedMember.id,
+          planId: assignSelectedPlan,
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setShowAssignModal(false);
+        fetchSubscriptions();
+        fetchPlans();
+      } else {
+        setError(data.error?.message || 'Failed to assign membership');
+      }
+    } catch {
+      setError('Failed to assign membership');
+    } finally {
+      setIsAssigning(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <>
@@ -428,8 +518,12 @@ export default function MembershipsPage() {
           </div>
         </div>
 
-        {/* Add Plan Button */}
-        <div className="flex justify-end">
+        {/* Action Buttons */}
+        <div className="flex justify-end gap-3">
+          <Button onClick={openAssignModal} variant="outline" className="rounded-xl">
+            <UserPlus className="mr-2 h-4 w-4" />
+            Assign Membership
+          </Button>
           <Button onClick={openAddModal} className="bg-slate-900 hover:bg-slate-800 rounded-xl">
             <Plus className="mr-2 h-4 w-4" />
             Add Plan
@@ -833,6 +927,136 @@ export default function MembershipsPage() {
                     'Save Changes'
                   ) : (
                     'Create Plan'
+                  )}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Assign Membership Modal */}
+      {showAssignModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setShowAssignModal(false)} />
+          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-5 border-b border-slate-100">
+              <h2 className="text-lg font-semibold text-slate-900">Assign Membership</h2>
+              <button onClick={() => setShowAssignModal(false)} className="p-2 hover:bg-slate-100 rounded-lg">
+                <X className="w-5 h-5 text-slate-500" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAssignMembership} className="p-5 space-y-4">
+              {/* Select Plan */}
+              <div className="space-y-2">
+                <Label htmlFor="assignPlan">Membership Plan</Label>
+                <select
+                  id="assignPlan"
+                  value={assignSelectedPlan}
+                  onChange={(e) => setAssignSelectedPlan(e.target.value)}
+                  className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+                  required
+                >
+                  <option value="">Select a plan...</option>
+                  {plans.filter(p => p.isActive).map((plan) => {
+                    const interval = BILLING_INTERVALS.find((i) => i.value === plan.billingInterval);
+                    return (
+                      <option key={plan.id} value={plan.id}>
+                        {plan.name} - {formatPrice(Number(plan.priceAmount), plan.priceCurrency)}{interval?.short}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              {/* Search Member */}
+              <div className="space-y-2">
+                <Label>Member</Label>
+                {assignSelectedMember ? (
+                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl">
+                    <div>
+                      <p className="font-medium text-sm">
+                        {assignSelectedMember.firstName} {assignSelectedMember.lastName}
+                      </p>
+                      <p className="text-xs text-slate-500">{assignSelectedMember.email}</p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setAssignSelectedMember(null)}
+                      className="rounded-lg"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <Input
+                        value={memberSearchQuery}
+                        onChange={(e) => setMemberSearchQuery(e.target.value)}
+                        placeholder="Search by name or email..."
+                        className="rounded-xl pl-10"
+                      />
+                      {isSearchingMembers && (
+                        <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-slate-400" />
+                      )}
+                    </div>
+                    {memberSearchResults.length > 0 && (
+                      <div className="border border-slate-200 rounded-xl max-h-48 overflow-y-auto divide-y divide-slate-100">
+                        {memberSearchResults.map((member) => (
+                          <button
+                            key={member.id}
+                            type="button"
+                            onClick={() => {
+                              setAssignSelectedMember(member);
+                              setMemberSearchQuery('');
+                              setMemberSearchResults([]);
+                            }}
+                            className="w-full flex items-center justify-between p-3 hover:bg-slate-50 transition-colors text-left"
+                          >
+                            <div>
+                              <p className="font-medium text-sm">
+                                {member.firstName} {member.lastName}
+                              </p>
+                              <p className="text-xs text-slate-500">{member.email}</p>
+                            </div>
+                            <Check className="w-4 h-4 text-slate-300" />
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {memberSearchQuery && !isSearchingMembers && memberSearchResults.length === 0 && (
+                      <p className="text-sm text-slate-500 text-center py-2">No members found</p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowAssignModal(false)}
+                  className="rounded-xl"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isAssigning || !assignSelectedPlan || !assignSelectedMember}
+                  className="bg-slate-900 hover:bg-slate-800 rounded-xl"
+                >
+                  {isAssigning ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Assigning...
+                    </>
+                  ) : (
+                    'Assign Membership'
                   )}
                 </Button>
               </div>
