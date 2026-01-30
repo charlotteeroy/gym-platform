@@ -116,14 +116,33 @@ html, body {
   -webkit-overflow-scrolling: touch;
 }
 
-/* Desktop sidebar - MUST be hidden on mobile */
-.desktop-sidebar-container {
+/* Desktop sidebar visibility */
+.desktop-sidebar {
   display: none !important;
 }
-
 @media (min-width: 768px) {
-  .desktop-sidebar-container {
+  .desktop-sidebar {
     display: flex !important;
+  }
+}
+
+/* Mobile bottom bar visibility */
+.mobile-bottom-bar {
+  display: flex !important;
+}
+@media (min-width: 768px) {
+  .mobile-bottom-bar {
+    display: none !important;
+  }
+}
+
+/* Mobile drawer visibility */
+.mobile-drawer {
+  display: flex !important;
+}
+@media (min-width: 768px) {
+  .mobile-drawer {
+    display: none !important;
   }
 }
 

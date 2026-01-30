@@ -17,8 +17,8 @@ export default async function DashboardLayout({
     <div className="flex min-h-screen flex-col md:flex-row bg-slate-50">
       <Sidebar />
       <main className="flex-1 overflow-auto">
-        <MobileHeaderSpacer />
         {children}
+        <MobileHeaderSpacer />
       </main>
     </div>
   );
