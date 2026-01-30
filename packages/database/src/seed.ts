@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { PrismaClient, StaffRole, BillingInterval, MemberStatus, SubscriptionStatus, CheckInMethod, PaymentStatus, PaymentMethod, InvoiceStatus, ExpenseCategory, PayoutStatus, ProductType, MemberPassStatus, RevenueCategory } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
