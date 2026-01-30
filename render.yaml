@@ -2,6 +2,7 @@
 # Render Blueprint Configuration
 # =============================================================================
 # This file defines the infrastructure for deploying the Gym Platform to Render.
+# Last deploy trigger: 2026-01-30
 #
 # To deploy using this blueprint:
 # 1. Go to Render Dashboard
