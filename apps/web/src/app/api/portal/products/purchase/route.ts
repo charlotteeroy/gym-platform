@@ -14,7 +14,7 @@ export async function POST(request: Request) {
     if (!session) return apiUnauthorized();
 
     const member = await prisma.member.findUnique({
-      where: { userId: session.userId },
+      where: { userId: session.user.id },
       select: { id: true, gymId: true },
     });
 
@@ -62,6 +62,7 @@ export async function POST(request: Request) {
     const pass = await prisma.memberPass.create({
       data: {
         memberId: member.id,
+        gymId: member.gymId,
         productId: product.id,
         status: 'ACTIVE',
         bonusTotal: product.bonusCount || 0,

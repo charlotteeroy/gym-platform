@@ -1,4 +1,6 @@
-import { prisma } from '@gym/database';
+'use client';
+
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { TrendingUp, ArrowRight, Sparkles } from 'lucide-react';
 
@@ -6,58 +8,82 @@ interface TopOpportunitiesProps {
   gymId: string;
 }
 
-export async function TopOpportunities({ gymId }: TopOpportunitiesProps) {
-  const opportunities = await prisma.opportunity.findMany({
-    where: {
-      gymId,
-      status: { in: ['NEW', 'CONTACTED', 'FOLLOW_UP'] },
-    },
-    include: {
-      member: {
-        select: {
-          firstName: true,
-          lastName: true,
-          email: true,
-        },
-      },
-    },
-    orderBy: [
-      { confidence: 'desc' },
-      { potentialValue: 'desc' },
-    ],
-    take: 5,
-  });
+interface Opportunity {
+  id: string;
+  memberId: string;
+  type: string;
+  confidence: 'HIGH' | 'MEDIUM' | 'LOW';
+  title: string;
+  potentialValue: number | string;
+  member: {
+    firstName: string;
+    lastName: string;
+  };
+}
 
-  if (opportunities.length === 0) {
-    return null;
+const confidenceColors: Record<string, string> = {
+  HIGH: 'bg-emerald-100 text-emerald-700',
+  MEDIUM: 'bg-amber-100 text-amber-700',
+  LOW: 'bg-slate-100 text-slate-600',
+};
+
+const typeIcons: Record<string, string> = {
+  UPGRADE: '\u{1F4C8}',
+  PERSONAL_TRAINING: '\u{1F4AA}',
+  RENEWAL: '\u{1F504}',
+  ADDON: '\u{2795}',
+  CROSS_SELL: '\u{1F3AF}',
+};
+
+const typeLabels: Record<string, string> = {
+  UPGRADE: 'Upgrade',
+  PERSONAL_TRAINING: 'PT',
+  RENEWAL: 'Renewal',
+  ADDON: 'Add-on',
+  CROSS_SELL: 'Cross-sell',
+};
+
+export function TopOpportunities({ gymId }: TopOpportunitiesProps) {
+  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/opportunities?limit=5&statuses=NEW,CONTACTED,FOLLOW_UP')
+      .then((res) => res.json())
+      .then((json) => {
+        if (!cancelled && json.success) {
+          const items = json.data?.opportunities || json.data || [];
+          setOpportunities(Array.isArray(items) ? items.slice(0, 5) : []);
+        }
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [gymId]);
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-2xl shadow-sm p-6">
+        <h3 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
+          <Sparkles className="w-5 h-5 text-emerald-600" />
+          Top Opportunities
+        </h3>
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-12 bg-gray-100 rounded-lg animate-pulse" />
+          ))}
+        </div>
+      </div>
+    );
   }
+
+  if (opportunities.length === 0) return null;
 
   const totalValue = opportunities.reduce(
     (sum, opp) => sum + Number(opp.potentialValue),
     0
   );
-
-  const confidenceColors = {
-    HIGH: 'bg-emerald-100 text-emerald-700',
-    MEDIUM: 'bg-amber-100 text-amber-700',
-    LOW: 'bg-slate-100 text-slate-600',
-  };
-
-  const typeIcons = {
-    UPGRADE: '📈',
-    PERSONAL_TRAINING: '💪',
-    RENEWAL: '🔄',
-    ADDON: '➕',
-    CROSS_SELL: '🎯',
-  };
-
-  const typeLabels = {
-    UPGRADE: 'Upgrade',
-    PERSONAL_TRAINING: 'PT',
-    RENEWAL: 'Renewal',
-    ADDON: 'Add-on',
-    CROSS_SELL: 'Cross-sell',
-  };
 
   return (
     <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
@@ -97,7 +123,7 @@ export async function TopOpportunities({ gymId }: TopOpportunitiesProps) {
                 <p className="font-medium text-slate-900 truncate">
                   {opportunity.member.firstName} {opportunity.member.lastName}
                 </p>
-                <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${confidenceColors[opportunity.confidence]}`}>
+                <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${confidenceColors[opportunity.confidence] || ''}`}>
                   {opportunity.confidence}
                 </span>
               </div>
@@ -109,7 +135,7 @@ export async function TopOpportunities({ gymId }: TopOpportunitiesProps) {
                 ${Number(opportunity.potentialValue).toLocaleString()}
               </div>
               <p className="text-xs text-slate-400">
-                {typeIcons[opportunity.type]} {typeLabels[opportunity.type]}
+                {typeIcons[opportunity.type] || ''} {typeLabels[opportunity.type] || opportunity.type}
               </p>
             </div>
           </Link>

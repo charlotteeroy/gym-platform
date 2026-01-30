@@ -9,7 +9,7 @@ export async function GET() {
     if (!session) return apiUnauthorized();
 
     const member = await prisma.member.findUnique({
-      where: { userId: session.userId },
+      where: { userId: session.user.id },
       select: { gymId: true, subscription: { select: { planId: true } } },
     });
 

@@ -218,6 +218,9 @@ model Staff {
   gymId  String
   gym    Gym    @relation(fields: [gymId], references: [id], onDelete: Cascade)
 
+  // Dashboard preferences
+  dashboardLayout Json?
+
   instructorClasses Class[] @relation("ClassInstructor")
   expenses          Expense[]
   refundsProcessed  Refund[]
@@ -545,6 +548,15 @@ enum InvoiceStatus {
   CANCELLED
 }
 
+enum RevenueCategory {
+  SUBSCRIPTION
+  PT_SESSION
+  CLASS_PACK
+  DROP_IN
+  MERCHANDISE
+  OTHER
+}
+
 enum ExpenseCategory {
   RENT
   UTILITIES
@@ -562,6 +574,7 @@ model Payment {
   amount          Decimal       @db.Decimal(10, 2)
   status          PaymentStatus @default(PENDING)
   method          PaymentMethod
+  revenueCategory RevenueCategory?
   description     String?
   stripePaymentId String?
 

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import React, { useState, useEffect, useRef, useCallback, CSSProperties } from 'react';
+import React, { useState, useEffect, CSSProperties } from 'react';
 import { useGymTheme } from '@/components/providers/gym-theme-provider';
 import {
   LayoutDashboard,
@@ -150,19 +150,6 @@ export function Sidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [expandedSections, setExpandedSections] = useState<string[]>(['Business']);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const [hoveredSection, setHoveredSection] = useState<string | null>(null);
-  const sectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  const openSection = useCallback((name: string) => {
-    if (sectionTimeoutRef.current) clearTimeout(sectionTimeoutRef.current);
-    setHoveredSection(name);
-  }, []);
-
-  const closeSection = useCallback(() => {
-    sectionTimeoutRef.current = setTimeout(() => {
-      setHoveredSection(null);
-    }, 150);
-  }, []);
 
   const { settings: gymSettings } = useGymTheme();
 
@@ -251,38 +238,9 @@ export function Sidebar() {
     );
   };
 
-  // ── Bubble link item (inside popover) ──
-  const BubbleLink = ({ item }: { item: NavItem }) => {
-    const isActive = pathname === item.href ||
-      (item.href !== '/dashboard' && item.href !== '/admin/billing' && pathname.startsWith(item.href + '/'));
-    const Icon = item.icon;
-    const hid = `bubble-${item.href}`;
-    const isHovered = hoveredId === hid;
-
-    return (
-      <Link
-        href={item.href}
-        style={{
-          display: 'flex', alignItems: 'center', gap: 10,
-          padding: '8px 14px', borderRadius: 8, fontSize: 13, fontWeight: 500,
-          textDecoration: 'none', transition: 'background-color 150ms, color 150ms',
-          color: isActive ? C.white : isHovered ? C.textDark : C.text,
-          backgroundColor: isActive ? C.activeBg : isHovered ? C.hoverBg : 'transparent',
-        }}
-        onMouseEnter={() => setHoveredId(hid)}
-        onMouseLeave={() => setHoveredId(null)}
-        onClick={() => setHoveredSection(null)}
-      >
-        <Icon size={16} style={{ flexShrink: 0, color: isActive ? C.white : C.textLight }} />
-        <span>{item.name}</span>
-      </Link>
-    );
-  };
-
-  // ── Section button with hover bubble ──
+  // ── Section button with click-to-expand ──
   const NavSectionComponent = ({ section }: { section: NavSection }) => {
-    const btnRef = useRef<HTMLDivElement>(null);
-    const [bubblePos, setBubblePos] = useState<{ top: number; left: number } | null>(null);
+    const isExpanded = expandedSections.includes(section.name);
     const isAnyChildActive = section.children.some((child) => {
       if (isNavSubSection(child)) {
         return child.children.some(
@@ -293,16 +251,7 @@ export function Sidebar() {
     });
     const Icon = section.icon;
     const hid = `sec-${section.name}`;
-    const isHovered = hoveredId === hid || hoveredSection === section.name;
-    const isBubbleOpen = hoveredSection === section.name;
-
-    const handleMouseEnter = () => {
-      if (btnRef.current) {
-        const rect = btnRef.current.getBoundingClientRect();
-        setBubblePos({ top: rect.top, left: rect.right + 8 });
-      }
-      openSection(section.name);
-    };
+    const isHovered = hoveredId === hid;
 
     const btnStyle: CSSProperties = {
       display: 'flex',
@@ -323,39 +272,11 @@ export function Sidebar() {
       minHeight: 36,
     };
 
-    // Flatten all children for the bubble (including sub-section children)
-    const allLinks: { item: NavItem; group?: string }[] = [];
-    section.children.forEach((child) => {
-      if (isNavSubSection(child)) {
-        child.children.forEach((subChild) => {
-          allLinks.push({ item: subChild, group: child.name });
-        });
-      } else {
-        allLinks.push({ item: child });
-      }
-    });
-
-    // Group links by group name
-    const groups: { name: string | null; items: NavItem[] }[] = [];
-    let currentGroup: { name: string | null; items: NavItem[] } | null = null;
-    allLinks.forEach(({ item, group }) => {
-      const gName = group || null;
-      if (!currentGroup || currentGroup.name !== gName) {
-        currentGroup = { name: gName, items: [item] };
-        groups.push(currentGroup);
-      } else {
-        currentGroup.items.push(item);
-      }
-    });
-
     return (
-      <div
-        ref={btnRef}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={closeSection}
-      >
+      <div>
         <button
           style={btnStyle}
+          onClick={() => toggleSection(section.name)}
           onMouseEnter={() => setHoveredId(hid)}
           onMouseLeave={() => setHoveredId(null)}
         >
@@ -363,49 +284,28 @@ export function Sidebar() {
             <Icon size={20} style={{ flexShrink: 0, color: isAnyChildActive ? C.textDark : C.textLight }} />
             <span>{section.name}</span>
           </span>
-          <ChevronRight size={16} style={{ color: C.textLight, flexShrink: 0 }} />
+          {isExpanded
+            ? <ChevronDown size={16} style={{ color: C.textLight, flexShrink: 0 }} />
+            : <ChevronRight size={16} style={{ color: C.textLight, flexShrink: 0 }} />
+          }
         </button>
-
-        {/* ── Hover Bubble (fixed, not clipped by overflow) ── */}
-        {isBubbleOpen && bubblePos && (
-          <div
-            onMouseEnter={() => openSection(section.name)}
-            onMouseLeave={closeSection}
-            style={{
-              position: 'fixed',
-              top: bubblePos.top,
-              left: bubblePos.left,
-              minWidth: 210,
-              backgroundColor: C.white,
-              borderRadius: 12,
-              border: `1px solid ${C.border}`,
-              boxShadow: '0 8px 24px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.08)',
-              padding: '8px 6px',
-              zIndex: 9999,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 2,
-            }}
-          >
-            {/* Section title */}
-            <div style={{ padding: '4px 14px 8px', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: C.textLight }}>
-              {section.name}
-            </div>
-            {groups.map((group, gi) => (
-              <div key={gi}>
-                {group.name && (
-                  <div style={{ padding: '6px 14px 2px', fontSize: 11, fontWeight: 600, color: C.textSub, opacity: 0.7 }}>
-                    {group.name}
+        {isExpanded && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 1, marginTop: 2 }}>
+            {section.children.map((child) => {
+              if (isNavSubSection(child)) {
+                return (
+                  <div key={child.name}>
+                    <div style={{ padding: '6px 12px 2px 44px', fontSize: 11, fontWeight: 600, color: C.textLight, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      {child.name}
+                    </div>
+                    {child.children.map((subChild) => (
+                      <NavLink key={subChild.name} item={subChild} doubleNested />
+                    ))}
                   </div>
-                )}
-                {group.items.map((item) => (
-                  <BubbleLink key={item.name} item={item} />
-                ))}
-                {gi < groups.length - 1 && (
-                  <div style={{ height: 1, backgroundColor: C.border, margin: '4px 10px' }} />
-                )}
-              </div>
-            ))}
+                );
+              }
+              return <NavLink key={child.name} item={child} nested />;
+            })}
           </div>
         )}
       </div>

@@ -1,4 +1,4 @@
-import { PrismaClient, StaffRole, BillingInterval, MemberStatus, SubscriptionStatus, CheckInMethod, PaymentStatus, PaymentMethod, InvoiceStatus, ExpenseCategory, PayoutStatus, ProductType, MemberPassStatus } from '@prisma/client';
+import { PrismaClient, StaffRole, BillingInterval, MemberStatus, SubscriptionStatus, CheckInMethod, PaymentStatus, PaymentMethod, InvoiceStatus, ExpenseCategory, PayoutStatus, ProductType, MemberPassStatus, RevenueCategory } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -44,6 +44,10 @@ async function main() {
   console.log('Seeding database with realistic demo data...');
 
   // Clear existing data (in correct order due to foreign keys)
+  await prisma.opportunityConversion.deleteMany({});
+  await prisma.opportunityAction.deleteMany({});
+  await prisma.opportunity.deleteMany({});
+  await prisma.waitlistEntry.deleteMany({});
   await prisma.booking.deleteMany({});
   await prisma.checkIn.deleteMany({});
   await prisma.memberPass.deleteMany({});
@@ -56,6 +60,11 @@ async function main() {
   await prisma.payout.deleteMany({});
   await prisma.subscription.deleteMany({});
   await prisma.product.deleteMany({});
+  await prisma.memberTag.deleteMany({});
+  await prisma.tag.deleteMany({});
+  await prisma.flowStep.deleteMany({});
+  await prisma.automatedFlow.deleteMany({});
+  await prisma.campaign.deleteMany({});
   await prisma.member.deleteMany({});
   await prisma.membershipPlan.deleteMany({});
   await prisma.staff.deleteMany({});
@@ -470,24 +479,28 @@ async function main() {
 
   // ===== PAYMENTS =====
   const paymentData = [
-    { amount: 79.99, status: PaymentStatus.COMPLETED, method: PaymentMethod.CARD, description: 'Premium Monthly - January', daysAgo: 2 },
-    { amount: 79.99, status: PaymentStatus.COMPLETED, method: PaymentMethod.CARD, description: 'Premium Monthly - January', daysAgo: 3 },
-    { amount: 29.99, status: PaymentStatus.COMPLETED, method: PaymentMethod.CARD, description: 'Basic Monthly - January', daysAgo: 4 },
-    { amount: 799.99, status: PaymentStatus.COMPLETED, method: PaymentMethod.CARD, description: 'Annual Premium', daysAgo: 5 },
-    { amount: 79.99, status: PaymentStatus.COMPLETED, method: PaymentMethod.CARD, description: 'Premium Monthly - January', daysAgo: 6 },
-    { amount: 29.99, status: PaymentStatus.COMPLETED, method: PaymentMethod.CASH, description: 'Basic Monthly - January', daysAgo: 7 },
-    { amount: 150.00, status: PaymentStatus.COMPLETED, method: PaymentMethod.CARD, description: 'Personal Training Session (3x)', daysAgo: 8 },
-    { amount: 79.99, status: PaymentStatus.PENDING, method: PaymentMethod.CARD, description: 'Premium Monthly - Processing', daysAgo: 0 },
-    { amount: 29.99, status: PaymentStatus.FAILED, method: PaymentMethod.CARD, description: 'Basic Monthly - Card Declined', daysAgo: 1 },
-    { amount: 79.99, status: PaymentStatus.REFUNDED, method: PaymentMethod.CARD, description: 'Premium Monthly - Refunded', daysAgo: 10 },
-    { amount: 29.99, status: PaymentStatus.COMPLETED, method: PaymentMethod.BANK_TRANSFER, description: 'Basic Monthly - December', daysAgo: 32 },
-    { amount: 79.99, status: PaymentStatus.COMPLETED, method: PaymentMethod.CARD, description: 'Premium Monthly - December', daysAgo: 33 },
-    { amount: 79.99, status: PaymentStatus.COMPLETED, method: PaymentMethod.CARD, description: 'Premium Monthly - December', daysAgo: 34 },
-    { amount: 29.99, status: PaymentStatus.COMPLETED, method: PaymentMethod.CARD, description: 'Basic Monthly - December', daysAgo: 35 },
-    { amount: 799.99, status: PaymentStatus.COMPLETED, method: PaymentMethod.CARD, description: 'Annual Premium', daysAgo: 40 },
-    { amount: 50.00, status: PaymentStatus.COMPLETED, method: PaymentMethod.CASH, description: 'Guest Pass (5x)', daysAgo: 12 },
-    { amount: 25.00, status: PaymentStatus.COMPLETED, method: PaymentMethod.CARD, description: 'Merchandise - Water Bottle', daysAgo: 15 },
-    { amount: 45.00, status: PaymentStatus.COMPLETED, method: PaymentMethod.CARD, description: 'Merchandise - Gym Shirt', daysAgo: 18 },
+    { amount: 79.99, status: PaymentStatus.COMPLETED, method: PaymentMethod.CARD, description: 'Premium Monthly - January', daysAgo: 2, revenueCategory: RevenueCategory.SUBSCRIPTION },
+    { amount: 79.99, status: PaymentStatus.COMPLETED, method: PaymentMethod.CARD, description: 'Premium Monthly - January', daysAgo: 3, revenueCategory: RevenueCategory.SUBSCRIPTION },
+    { amount: 29.99, status: PaymentStatus.COMPLETED, method: PaymentMethod.CARD, description: 'Basic Monthly - January', daysAgo: 4, revenueCategory: RevenueCategory.SUBSCRIPTION },
+    { amount: 799.99, status: PaymentStatus.COMPLETED, method: PaymentMethod.CARD, description: 'Annual Premium', daysAgo: 5, revenueCategory: RevenueCategory.SUBSCRIPTION },
+    { amount: 79.99, status: PaymentStatus.COMPLETED, method: PaymentMethod.CARD, description: 'Premium Monthly - January', daysAgo: 6, revenueCategory: RevenueCategory.SUBSCRIPTION },
+    { amount: 29.99, status: PaymentStatus.COMPLETED, method: PaymentMethod.CASH, description: 'Basic Monthly - January', daysAgo: 7, revenueCategory: RevenueCategory.SUBSCRIPTION },
+    { amount: 150.00, status: PaymentStatus.COMPLETED, method: PaymentMethod.CARD, description: 'Personal Training Session (3x)', daysAgo: 8, revenueCategory: RevenueCategory.PT_SESSION },
+    { amount: 79.99, status: PaymentStatus.PENDING, method: PaymentMethod.CARD, description: 'Premium Monthly - Processing', daysAgo: 0, revenueCategory: RevenueCategory.SUBSCRIPTION },
+    { amount: 29.99, status: PaymentStatus.FAILED, method: PaymentMethod.CARD, description: 'Basic Monthly - Card Declined', daysAgo: 1, revenueCategory: RevenueCategory.SUBSCRIPTION },
+    { amount: 79.99, status: PaymentStatus.REFUNDED, method: PaymentMethod.CARD, description: 'Premium Monthly - Refunded', daysAgo: 10, revenueCategory: RevenueCategory.SUBSCRIPTION },
+    { amount: 29.99, status: PaymentStatus.COMPLETED, method: PaymentMethod.BANK_TRANSFER, description: 'Basic Monthly - December', daysAgo: 32, revenueCategory: RevenueCategory.SUBSCRIPTION },
+    { amount: 79.99, status: PaymentStatus.COMPLETED, method: PaymentMethod.CARD, description: 'Premium Monthly - December', daysAgo: 33, revenueCategory: RevenueCategory.SUBSCRIPTION },
+    { amount: 79.99, status: PaymentStatus.COMPLETED, method: PaymentMethod.CARD, description: 'Premium Monthly - December', daysAgo: 34, revenueCategory: RevenueCategory.SUBSCRIPTION },
+    { amount: 29.99, status: PaymentStatus.COMPLETED, method: PaymentMethod.CARD, description: 'Basic Monthly - December', daysAgo: 35, revenueCategory: RevenueCategory.SUBSCRIPTION },
+    { amount: 799.99, status: PaymentStatus.COMPLETED, method: PaymentMethod.CARD, description: 'Annual Premium', daysAgo: 40, revenueCategory: RevenueCategory.SUBSCRIPTION },
+    { amount: 50.00, status: PaymentStatus.COMPLETED, method: PaymentMethod.CASH, description: 'Class Pack (5 sessions)', daysAgo: 12, revenueCategory: RevenueCategory.CLASS_PACK },
+    { amount: 15.00, status: PaymentStatus.COMPLETED, method: PaymentMethod.CARD, description: 'Drop-in Session', daysAgo: 14, revenueCategory: RevenueCategory.DROP_IN },
+    { amount: 75.00, status: PaymentStatus.COMPLETED, method: PaymentMethod.CARD, description: 'Personal Training Session', daysAgo: 9, revenueCategory: RevenueCategory.PT_SESSION },
+    { amount: 75.00, status: PaymentStatus.COMPLETED, method: PaymentMethod.CARD, description: 'Personal Training Session', daysAgo: 16, revenueCategory: RevenueCategory.PT_SESSION },
+    { amount: 100.00, status: PaymentStatus.COMPLETED, method: PaymentMethod.CARD, description: 'Class Pack (10 sessions)', daysAgo: 20, revenueCategory: RevenueCategory.CLASS_PACK },
+    { amount: 25.00, status: PaymentStatus.COMPLETED, method: PaymentMethod.CARD, description: 'Merchandise - Water Bottle', daysAgo: 15, revenueCategory: RevenueCategory.MERCHANDISE },
+    { amount: 45.00, status: PaymentStatus.COMPLETED, method: PaymentMethod.CARD, description: 'Merchandise - Gym Shirt', daysAgo: 18, revenueCategory: RevenueCategory.MERCHANDISE },
   ];
 
   for (const p of paymentData) {
@@ -497,6 +510,7 @@ async function main() {
         amount: p.amount,
         status: p.status,
         method: p.method,
+        revenueCategory: p.revenueCategory,
         description: p.description,
         memberId: randomMember.id,
         gymId: gym.id,

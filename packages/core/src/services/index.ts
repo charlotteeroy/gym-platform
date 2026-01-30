@@ -305,3 +305,31 @@ export {
   getPassById,
 } from './pass.service';
 
+// Dashboard service
+export {
+  type KeyStatsTrendData,
+  getKeyStatsTrend,
+  type RevenueTrendBucket,
+  type RevenueTrendResult,
+  type RevenueBySilo,
+  type SiloCard,
+  type PerClassRevenueItem,
+  type TimeSlotRevenue,
+  type PerClassRevenueResult,
+  type RiskLevel,
+  type EnhancedAtRiskMember,
+  type AtRiskEnhancedResult,
+  type CashFlowProjection,
+  type RenewalCalendarEntry,
+  type CashFlowProjectionResult,
+  type DashboardWidget,
+  getRevenueTrend,
+  getRevenueBySilo,
+  getSiloCards,
+  getPerClassRevenue,
+  getAtRiskEnhanced,
+  getCashFlowProjection,
+  getDashboardLayout,
+  saveDashboardLayout,
+} from './dashboard.service';
+
